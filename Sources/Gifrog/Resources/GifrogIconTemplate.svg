@@ -1,0 +1,13 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision">
+  <!-- Frog visual center at (140,119). Scale 1.9, center at canvas (256,256) → translate(-10, 30) -->
+  <g transform="translate(-10 30) scale(1.9)">
+    <path d="M36 105L67 45L106 28L140 55L174 28L213 45L244 105L218 166L140 210L62 166L36 105Z" stroke="black" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M67 45L106 28L121 88L78 103L36 105" stroke="black" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M213 45L174 28L159 88L202 103L244 105" stroke="black" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M78 103L121 88L140 127L96 144L36 105" stroke="black" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M202 103L159 88L140 127L184 144L244 105" stroke="black" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M140 127V210" stroke="black" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="88" cy="74" r="11.5" stroke="black" stroke-width="14"/>
+    <circle cx="192" cy="74" r="11.5" stroke="black" stroke-width="14"/>
+  </g>
+</svg>

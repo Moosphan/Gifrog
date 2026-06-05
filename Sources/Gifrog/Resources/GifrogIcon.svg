@@ -1,0 +1,32 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision">
+  <defs>
+    <linearGradient id="gifrog-icon-main" x1="70" y1="43" x2="224" y2="214" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B8FF6F"/>
+      <stop offset="0.5" stop-color="#2BD183"/>
+      <stop offset="1" stop-color="#087868"/>
+    </linearGradient>
+    <linearGradient id="gifrog-icon-left" x1="79" y1="49" x2="135" y2="125" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E1FF82"/>
+      <stop offset="1" stop-color="#55E282"/>
+    </linearGradient>
+    <linearGradient id="gifrog-icon-deep" x1="108" y1="137" x2="176" y2="214" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#10946B"/>
+      <stop offset="1" stop-color="#05554C"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(16 50) scale(1.72)">
+    <path d="M36 105L67 45L106 28L140 55L174 28L213 45L244 105L218 166L140 210L62 166L36 105Z" fill="url(#gifrog-icon-main)"/>
+    <path d="M67 45L106 28L121 88L78 103L36 105L67 45Z" fill="url(#gifrog-icon-left)"/>
+    <path d="M213 45L174 28L159 88L202 103L244 105L213 45Z" fill="#7AED75"/>
+    <path d="M78 103L121 88L140 127L96 144L36 105L78 103Z" fill="#2ACB7D"/>
+    <path d="M202 103L159 88L140 127L184 144L244 105L202 103Z" fill="#13A06E"/>
+    <path d="M96 144L140 127L140 210L62 166L96 144Z" fill="url(#gifrog-icon-deep)"/>
+    <path d="M184 144L140 127L140 210L218 166L184 144Z" fill="#076356"/>
+    <path d="M106 28L140 55L121 88L106 28Z" fill="#D6FF7A"/>
+    <path d="M174 28L140 55L159 88L174 28Z" fill="#8DEE73"/>
+    <circle cx="88" cy="74" r="11.5" fill="#062C28"/>
+    <circle cx="192" cy="74" r="11.5" fill="#062C28"/>
+    <circle cx="92" cy="69" r="3.6" fill="#F5FFF1"/>
+    <circle cx="188" cy="69" r="3.6" fill="#F5FFF1"/>
+  </g>
+</svg>
