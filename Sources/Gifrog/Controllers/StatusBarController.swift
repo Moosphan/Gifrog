@@ -6,14 +6,12 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     private let statusItem: NSStatusItem
     private let popover = NSPopover()
     private let defaultIcon: NSImage?
+    private let surfaceColor = NSColor(red: 0.965, green: 0.980, blue: 0.961, alpha: 1.0)
 
     init(app: GifrogController) {
         self.app = app
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
-        // Load custom frog icon from SPM resource bundle
-        // Apple HIG: menu bar icon 24x24pt safe area within 36x36pt canvas
-        // Load custom frog icon from SPM resource bundle
         if let url = Bundle.module.url(forResource: "GifrogIconTemplate", withExtension: "png"),
            let img = NSImage(contentsOf: url) {
             img.size = NSSize(width: 22, height: 22)
@@ -96,6 +94,37 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         default:
             button.image = defaultIcon ?? NSImage(systemSymbolName: "film.stack", accessibilityDescription: "Gifrog")
             button.image?.isTemplate = true
+        }
+    }
+
+    // MARK: - NSPopoverDelegate
+
+    func popoverWillShow(_ notification: Notification) {
+        guard let window = popover.contentViewController?.view.window else { return }
+        window.backgroundColor = surfaceColor
+        // Aggressively tint all popover chrome views to match
+        if let root = window.contentView {
+            tintAllSubviews(root, color: surfaceColor)
+        }
+    }
+
+    private func tintAllSubviews(_ view: NSView, color: NSColor) {
+        // Skip our SwiftUI content view
+        if view is NSHostingView<StatusPopoverView> { return }
+        // Skip the content view's direct SwiftUI hosting view
+        if String(describing: type(of: view)).contains("HostingView") { return }
+
+        view.wantsLayer = true
+        view.layer?.backgroundColor = color.cgColor
+
+        if let ev = view as? NSVisualEffectView {
+            ev.wantsLayer = true
+            ev.layer?.backgroundColor = color.cgColor
+            ev.layer?.opacity = 1.0
+        }
+
+        for sub in view.subviews {
+            tintAllSubviews(sub, color: color)
         }
     }
 }

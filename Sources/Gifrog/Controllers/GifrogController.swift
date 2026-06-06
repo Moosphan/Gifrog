@@ -16,6 +16,8 @@ final class GifrogController: NSObject, ObservableObject {
     @Published var activeProject: Project?
     @Published var exportProgress: Double = 0
     @Published var lastExport: ExportedFile?
+    @Published var hasScreenRecordingPermission: Bool = false
+    @Published var hasAccessibilityPermission: Bool = false
 
     private let recorder = FrameRecorder()
     private let clickRecorder = ClickEventRecorder()
@@ -57,6 +59,29 @@ final class GifrogController: NSObject, ObservableObject {
             self?.handleGlobalShortcut()
         }
         hotKeyController?.register()
+
+        refreshPermissionStatus()
+
+        // Refresh permissions when app becomes active (user returns from System Settings)
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.refreshPermissionStatus()
+        }
+    }
+
+    func refreshPermissionStatus() {
+        #if DEBUG
+        // Debug builds lack proper bundle signing, so TCC APIs always return false.
+        // Show as granted in debug to avoid misleading users during development.
+        hasScreenRecordingPermission = true
+        hasAccessibilityPermission = true
+        #else
+        hasScreenRecordingPermission = CGPreflightScreenCaptureAccess()
+        hasAccessibilityPermission = AXIsProcessTrusted()
+        #endif
     }
 
     func showUIPreview(surface: String) {
@@ -161,7 +186,7 @@ final class GifrogController: NSObject, ObservableObject {
     func startCaptureFlow() {
         closeStatusPanel()
 
-        guard hasScreenRecordingPermission() else {
+        guard hasScreenRecordingPermission else {
             phase = .requestingPermission
             permissionController?.show()
             return
@@ -169,9 +194,22 @@ final class GifrogController: NSObject, ObservableObject {
 
         switch selectedMode {
         case .region:
-            regionSelector?.show { [weak self] region in
-                self?.prepareRecording(region: region)
-            }
+            regionSelector?.show(
+                initialRegion: settings.lastRegion,
+                onSelectionChanged: { [weak self] region in
+                    guard let self else { return }
+                    self.currentRegion = region
+                    if self.phase != .ready {
+                        self.phase = .ready
+                    }
+                    self.toolbarController?.show(near: region)
+                },
+                onComplete: { [weak self] region in
+                    self?.settings.lastRegion = region
+                    self?.saveSettings()
+                    self?.prepareRecording(region: region)
+                }
+            )
         case .screen:
             guard let screen = NSScreen.main else {
                 fail(GifrogError.noScreen)
@@ -190,6 +228,7 @@ final class GifrogController: NSObject, ObservableObject {
         toolbarController?.show(near: region)
         statusController?.refresh()
     }
+
 
     func repeatLastRegion() {
         guard let currentRegion else {
@@ -334,7 +373,8 @@ final class GifrogController: NSObject, ObservableObject {
     }
 
     func recheckPermission() {
-        if hasScreenRecordingPermission() {
+        refreshPermissionStatus()
+        if hasScreenRecordingPermission {
             permissionController?.close()
             phase = .idle
             message = "Permission granted. Start a new recording from the status panel."
@@ -711,10 +751,6 @@ final class GifrogController: NSObject, ObservableObject {
             return
         }
         try? data.write(to: url)
-    }
-
-    private func hasScreenRecordingPermission() -> Bool {
-        CGPreflightScreenCaptureAccess()
     }
 
     private func startElapsedTimer() {

@@ -16,7 +16,7 @@ final class PermissionGuideController {
             backing: .buffered,
             defer: false
         )
-        panel.title = "Gifrog Permissions"
+        panel.title = "Permissions"
         panel.contentView = NSHostingView(rootView: PermissionGuideView(app: app))
         panel.center()
         panel.makeKeyAndOrderFront(nil)

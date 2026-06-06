@@ -19,6 +19,7 @@ final class RecordingToolbarController {
         installKeyboardMonitor()
     }
 
+
     func showFinished(near region: CaptureRegion?) {
         guard let region else { return }
         show(near: region)

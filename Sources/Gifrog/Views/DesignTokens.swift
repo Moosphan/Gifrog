@@ -35,20 +35,23 @@ struct QuartzBackground: View {
     var opacity: Double = 0.94
 
     var body: some View {
-        ZStack {
-            VisualEffect(material: material)
-            UI.surface.opacity(opacity)
-        }
+        UI.surface.opacity(opacity)
     }
 }
 
 struct IconButtonStyle: ButtonStyle {
+    @State private var isHovering = false
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(UI.secondaryText)
-            .background(configuration.isPressed ? Color.black.opacity(0.08) : Color.black.opacity(0.001))
+            .foregroundStyle(isHovering ? UI.primary : UI.secondaryText)
+            .background(
+                configuration.isPressed ? Color.black.opacity(0.10) :
+                isHovering ? Color.black.opacity(0.06) : Color.clear
+            )
             .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .onHover { isHovering = $0 }
     }
 }
 
@@ -87,6 +90,60 @@ struct EditorGhostButtonStyle: ButtonStyle {
             .frame(height: 30)
             .background(configuration.isPressed ? UI.surfaceLow : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+    }
+}
+
+struct ImportButtonStyle: ButtonStyle {
+    @State private var isHovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(isHovering ? UI.primary.opacity(0.75) : UI.primary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(configuration.isPressed ? UI.primary.opacity(0.12) :
+                          isHovering ? UI.primary.opacity(0.08) : Color.clear)
+            )
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .onHover { isHovering = $0 }
+    }
+}
+
+struct RecordButtonStyle: ButtonStyle {
+    @State private var isHovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(
+                        configuration.isPressed ? UI.primaryDark :
+                        isHovering ? UI.primary.opacity(0.88) : UI.primary
+                    )
+            )
+            .shadow(color: UI.primary.opacity(isHovering ? 0.30 : 0.22), radius: isHovering ? 12 : 10, y: isHovering ? 6 : 5)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .onHover { isHovering = $0 }
+    }
+}
+
+struct CopyLastButtonStyle: ButtonStyle {
+    @State private var isHovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                Capsule()
+                    .fill(
+                        configuration.isPressed ? UI.red.opacity(0.80) :
+                        isHovering ? UI.red.opacity(0.88) : UI.red
+                    )
+            )
+            .shadow(color: UI.red.opacity(isHovering ? 0.30 : 0.22), radius: isHovering ? 10 : 8, y: isHovering ? 4 : 3)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .onHover { isHovering = $0 }
     }
 }
 

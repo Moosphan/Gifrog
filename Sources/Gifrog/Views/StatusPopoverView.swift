@@ -14,11 +14,6 @@ struct StatusPopoverView: View {
         }
         .frame(width: 320)
         .background(QuartzBackground(opacity: 0.92))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.black.opacity(0.10), lineWidth: 0.5)
-        )
         .overlay {
             if isDropTarget {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -38,25 +33,17 @@ struct StatusPopoverView: View {
         VStack(spacing: 10) {
             HStack(spacing: 2) {
                 ForEach(CaptureMode.allCases) { mode in
-                    Button {
-                        app.selectedMode = mode
-                    } label: {
+                    SegmentButton(
+                        isSelected: app.selectedMode == mode,
+                        action: { app.selectedMode = mode }
+                    ) {
                         VStack(spacing: 1) {
                             Image(systemName: mode.symbol)
                                 .font(.system(size: 15, weight: .medium))
                             Text(mode.rawValue)
                                 .font(.system(size: 10, weight: .medium))
                         }
-                        .foregroundStyle(app.selectedMode == mode ? UI.primary : UI.secondaryText)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 38)
-                        .background(
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(app.selectedMode == mode ? Color.white : Color.clear)
-                                .shadow(color: .black.opacity(app.selectedMode == mode ? 0.10 : 0), radius: 3, y: 1)
-                        )
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(2)
@@ -87,11 +74,8 @@ struct StatusPopoverView: View {
                 .foregroundStyle(Color.white)
                 .padding(.horizontal, 12)
                 .frame(height: 38)
-                .background(UI.primary)
-                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-                .shadow(color: UI.primary.opacity(0.22), radius: 10, y: 5)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(RecordButtonStyle())
 
             if let message = app.message {
                 Text(message)
@@ -120,9 +104,8 @@ struct StatusPopoverView: View {
                 } label: {
                     Label("Import", systemImage: "plus")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(UI.primary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ImportButtonStyle())
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
@@ -185,11 +168,8 @@ struct StatusPopoverView: View {
                     .padding(.horizontal, 11)
                     .frame(height: 30)
                     .foregroundStyle(Color.white)
-                    .background(UI.red)
-                    .clipShape(Capsule())
-                    .shadow(color: UI.red.opacity(0.22), radius: 8, y: 3)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(CopyLastButtonStyle())
             .disabled(app.projects.first?.exports.isEmpty ?? true)
         }
         .padding(.horizontal, 10)
@@ -204,6 +184,7 @@ struct StatusPopoverView: View {
 struct RecentProjectRow: View {
     @ObservedObject var app: GifrogController
     var project: Project
+    @State private var isHovering = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -242,9 +223,10 @@ struct RecentProjectRow: View {
         .padding(8)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.black.opacity(0.001))
+                .fill(isHovering ? Color.black.opacity(0.06) : Color.clear)
         )
         .contentShape(Rectangle())
+        .onHover { isHovering = $0 }
     }
 
     @ViewBuilder
@@ -265,5 +247,34 @@ struct RecentProjectRow: View {
             .frame(width: 48, height: 36)
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
+    }
+}
+
+// MARK: - Segment Button
+
+struct SegmentButton<Content: View>: View {
+    let isSelected: Bool
+    let action: () -> Void
+    @ViewBuilder let content: () -> Content
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            content()
+                .foregroundStyle(isSelected ? UI.primary : UI.secondaryText)
+                .frame(maxWidth: .infinity)
+                .frame(height: 38)
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(
+                            isSelected ? Color.white :
+                            isHovering ? Color.black.opacity(0.06) : Color.clear
+                        )
+                        .shadow(color: .black.opacity(isSelected ? 0.10 : 0), radius: 3, y: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .onHover { isHovering = $0 }
     }
 }

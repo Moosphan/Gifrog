@@ -67,6 +67,7 @@ struct AppSettings: Codable, Equatable {
     var savePath = AppPaths.defaultSavePath.path
     var autoCheckUpdates = false
     var anonymousUsageStats = false
+    var lastRegion: CaptureRegion?
 
     init() {}
 
@@ -83,6 +84,7 @@ struct AppSettings: Codable, Equatable {
         case savePath
         case autoCheckUpdates
         case anonymousUsageStats
+        case lastRegion
     }
 
     init(from decoder: Decoder) throws {
