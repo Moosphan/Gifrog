@@ -31,24 +31,23 @@ struct StatusPopoverView: View {
 
     private var captureModeHeader: some View {
         VStack(spacing: 10) {
-            HStack(spacing: 2) {
-                ForEach(CaptureMode.allCases) { mode in
-                    SegmentButton(
-                        isSelected: app.selectedMode == mode,
-                        action: { app.selectedMode = mode }
-                    ) {
-                        VStack(spacing: 1) {
-                            Image(systemName: mode.symbol)
-                                .font(.system(size: 15, weight: .medium))
-                            Text(mode.rawValue)
-                                .font(.system(size: 10, weight: .medium))
-                        }
-                    }
+            SlidingSegment(
+                selection: Binding(
+                    get: { CaptureMode.allCases.firstIndex(of: app.selectedMode) ?? 0 },
+                    set: { app.selectedMode = CaptureMode.allCases[$0] }
+                ),
+                count: CaptureMode.allCases.count,
+                height: 36
+            ) { index, isSelected in
+                let mode = CaptureMode.allCases[index]
+                VStack(spacing: 1) {
+                    Image(systemName: mode.symbol)
+                        .font(.system(size: 15, weight: .medium))
+                    Text(mode.rawValue)
+                        .font(.system(size: 10, weight: .medium))
                 }
+                .foregroundStyle(isSelected ? UI.primary : UI.secondaryText)
             }
-            .padding(2)
-            .background(Color.black.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
         .padding(12)
         .background(Color.white.opacity(0.20))
@@ -250,8 +249,77 @@ struct RecentProjectRow: View {
     }
 }
 
-// MARK: - Segment Button
+// MARK: - Sliding Segment Control
 
+struct SlidingSegment<Content: View>: View {
+    @Binding var selection: Int
+    let count: Int
+    var height: CGFloat = 38
+    @ViewBuilder let content: (Int, Bool) -> Content
+    @State private var hoveredIndex: Int?
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            // Sliding indicator (background — only offset is animated)
+            SlidingIndicator(
+                selection: CGFloat(selection),
+                count: count,
+                height: height,
+                inset: 2,
+                cornerRadius: 7
+            )
+
+            // Segments (top layer — full area is clickable via contentShape + tap)
+            HStack(spacing: 2) {
+                ForEach(0..<count, id: \.self) { index in
+                    ZStack {
+                        // Hover background
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(Color.white.opacity(hoveredIndex == index && selection != index ? 0.40 : 0))
+
+                        // Content
+                        content(index, selection == index)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: height)
+                    .contentShape(Rectangle())
+                    .onTapGesture { selection = index }
+                    .onHover { hoveredIndex = $0 ? index : nil }
+                }
+            }
+            .padding(2)
+        }
+        .contentShape(Rectangle())
+        .background(Color.black.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+    }
+}
+
+/// Animatable indicator that slides smoothly without affecting sibling views.
+private struct SlidingIndicator: View {
+    let selection: CGFloat
+    let count: Int
+    let height: CGFloat
+    let inset: CGFloat
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        GeometryReader { geo in
+            let segWidth = (geo.size.width - inset * 2) / CGFloat(count)
+
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.10), radius: 3, y: 1)
+                .frame(width: segWidth - 2, height: height)
+                .offset(x: inset + selection * segWidth + 1, y: inset)
+        }
+        .frame(height: height + inset * 2)
+        .allowsHitTesting(false)
+        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: selection)
+    }
+}
+
+// Legacy SegmentButton kept for compatibility
 struct SegmentButton<Content: View>: View {
     let isSelected: Bool
     let action: () -> Void

@@ -83,52 +83,49 @@ struct SettingsView: View {
     private var advancedTab: some View {
         VStack(spacing: 18) {
             optionRow("Default Format") {
-                HStack(spacing: 2) {
-                    ForEach(ExportFormat.allCases) { format in
-                        choiceButton(format.rawValue, selected: app.settings.defaultFormat == format) {
-                            app.settings.defaultFormat = format
-                            app.saveSettings()
-                        }
-                    }
-                }
-                .padding(3)
-                .background(UI.surfaceLow)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                SlidingChoiceGroup(
+                    selection: Binding(
+                        get: { ExportFormat.allCases.firstIndex(of: app.settings.defaultFormat) ?? 0 },
+                        set: { app.settings.defaultFormat = ExportFormat.allCases[$0]; app.saveSettings() }
+                    ),
+                    labels: ExportFormat.allCases.map(\.rawValue),
+                    inset: true
+                )
             }
 
             optionRow("Quality") {
-                HStack(spacing: 8) {
-                    ForEach(QualityPreset.allCases) { preset in
-                        choiceButton(preset.rawValue, selected: app.settings.quality == preset) {
-                            applyQualityPreset(preset)
-                        }
-                    }
-                }
+                SlidingChoiceGroup(
+                    selection: Binding(
+                        get: { QualityPreset.allCases.firstIndex(of: app.settings.quality) ?? 0 },
+                        set: { applyQualityPreset(QualityPreset.allCases[$0]) }
+                    ),
+                    labels: QualityPreset.allCases.map(\.rawValue),
+                    inset: false
+                )
             }
 
             optionRow("Default FPS") {
-                HStack(spacing: 2) {
-                    ForEach([10, 15, 24, 30], id: \.self) { fps in
-                        choiceButton("\(fps)", selected: app.settings.defaultFPS == fps) {
-                            app.settings.defaultFPS = fps
-                            app.saveSettings()
-                        }
-                    }
-                }
-                .padding(3)
-                .background(UI.surfaceLow)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                let fpsOptions = [10, 15, 24, 30]
+                SlidingChoiceGroup(
+                    selection: Binding(
+                        get: { fpsOptions.firstIndex(of: app.settings.defaultFPS) ?? 0 },
+                        set: { app.settings.defaultFPS = fpsOptions[$0]; app.saveSettings() }
+                    ),
+                    labels: fpsOptions.map(String.init),
+                    inset: true
+                )
             }
 
             optionRow("Default Scale") {
-                HStack(spacing: 8) {
-                    ForEach([1.0, 0.75, 0.5], id: \.self) { scale in
-                        choiceButton("\(Int(scale * 100))%", selected: app.settings.defaultScale == scale) {
-                            app.settings.defaultScale = scale
-                            app.saveSettings()
-                        }
-                    }
-                }
+                let scaleOptions = [1.0, 0.75, 0.5]
+                SlidingChoiceGroup(
+                    selection: Binding(
+                        get: { scaleOptions.firstIndex(of: app.settings.defaultScale) ?? 0 },
+                        set: { app.settings.defaultScale = scaleOptions[$0]; app.saveSettings() }
+                    ),
+                    labels: scaleOptions.map { "\(Int($0 * 100))%" },
+                    inset: false
+                )
             }
 
             Divider()
@@ -182,19 +179,9 @@ struct SettingsView: View {
     }
 
     private func tabButton(_ title: String, _ symbol: String) -> some View {
-        Button {
+        SettingsTabButton(title: title, symbol: symbol, isActive: tab == title) {
             tab = title
-        } label: {
-            Label(title, systemImage: symbol)
-                .font(.system(size: 12, weight: .medium))
-                .padding(.horizontal, 10)
-                .frame(height: 30)
-                .foregroundStyle(tab == title ? UI.primaryDark : UI.secondaryText)
-                .background(tab == title ? Color.white : Color.clear)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .shadow(color: .black.opacity(tab == title ? 0.08 : 0), radius: 3, y: 1)
         }
-        .buttonStyle(.plain)
     }
 
     private func settingsCheckRow(_ title: String, isOn: Binding<Bool>) -> some View {
@@ -274,24 +261,6 @@ struct SettingsView: View {
         }
     }
 
-    private func choiceButton(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(selected ? UI.primaryDark : UI.secondaryText)
-                .frame(maxWidth: .infinity)
-                .frame(height: 30)
-                .background(selected ? Color.white : Color.clear)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .stroke(selected ? UI.primary : UI.outline.opacity(0.0), lineWidth: selected ? 1.5 : 0)
-                )
-                .shadow(color: .black.opacity(selected ? 0.08 : 0), radius: 3, y: 1)
-        }
-        .buttonStyle(.plain)
-    }
-
     private func applyQualityPreset(_ preset: QualityPreset) {
         app.settings.quality = preset
         switch preset {
@@ -320,5 +289,112 @@ struct SettingsView: View {
                 app.saveSettings()
             }
         }
+    }
+}
+
+// MARK: - Sliding Choice Group
+
+struct SlidingChoiceGroup: View {
+    @Binding var selection: Int
+    let labels: [String]
+    var inset: Bool = false
+    var height: CGFloat = 30
+    var cornerRadius: CGFloat = 6
+
+    private var spacing: CGFloat { inset ? 2 : 8 }
+
+    var body: some View {
+        let group = ZStack(alignment: .topLeading) {
+            // Sliding indicator (background — only offset is animated)
+            ChoiceIndicator(
+                selection: CGFloat(selection),
+                count: labels.count,
+                spacing: spacing,
+                height: height,
+                cornerRadius: cornerRadius
+            )
+
+            // Choices (top layer — full area is clickable)
+            HStack(spacing: spacing) {
+                ForEach(labels.indices, id: \.self) { index in
+                    Text(labels[index])
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(selection == index ? UI.primaryDark : UI.secondaryText)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: height)
+                        .contentShape(Rectangle())
+                        .onTapGesture { selection = index }
+                }
+            }
+        }
+        .contentShape(Rectangle())
+
+        if inset {
+            group
+                .padding(3)
+                .background(UI.surfaceLow)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        } else {
+            group
+        }
+    }
+}
+
+private struct ChoiceIndicator: View {
+    let selection: CGFloat
+    let count: Int
+    let spacing: CGFloat
+    let height: CGFloat
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        GeometryReader { geo in
+            let n = CGFloat(count)
+            let segWidth = (geo.size.width - spacing * (n - 1)) / n
+
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color.white)
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(UI.primary, lineWidth: 1.5)
+                )
+                .shadow(color: .black.opacity(0.08), radius: 3, y: 1)
+                .frame(width: segWidth, height: height)
+                .offset(x: selection * (segWidth + spacing))
+        }
+        .frame(height: height)
+        .allowsHitTesting(false)
+        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: selection)
+    }
+}
+
+// MARK: - Settings Tab Button
+
+private struct SettingsTabButton: View {
+    let title: String
+    let symbol: String
+    let isActive: Bool
+    let action: () -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: symbol)
+                .font(.system(size: 12, weight: .medium))
+                .padding(.horizontal, 10)
+                .frame(height: 30)
+                .foregroundStyle(isActive ? UI.primaryDark : UI.secondaryText)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(
+                            isActive ? Color.white :
+                            isHovering ? Color.black.opacity(0.06) : Color.clear
+                        )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .shadow(color: .black.opacity(isActive ? 0.08 : 0), radius: 3, y: 1)
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
     }
 }
