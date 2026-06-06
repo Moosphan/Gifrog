@@ -510,7 +510,7 @@ final class GifrogController: NSObject, ObservableObject {
     }
 
     func copyLastExport() {
-        guard let file = lastExport ?? projects.first?.exports.first else { return }
+        guard let file = lastExport ?? projects.lazy.compactMap(\.exports.first).first else { return }
         copyToClipboard(file)
         message = "Copied \(file.format.rawValue) to clipboard."
     }

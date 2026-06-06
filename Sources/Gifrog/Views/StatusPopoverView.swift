@@ -159,17 +159,11 @@ struct StatusPopoverView: View {
 
             Spacer()
 
-            Button {
+            CopyLastButton(
+                enabled: app.lastExport != nil || app.projects.contains { !$0.exports.isEmpty }
+            ) {
                 app.copyLastExport()
-            } label: {
-                Label("Copy Last", systemImage: "doc.on.doc")
-                    .font(.system(size: 11, weight: .semibold))
-                    .padding(.horizontal, 11)
-                    .frame(height: 30)
-                    .foregroundStyle(Color.white)
             }
-            .buttonStyle(CopyLastButtonStyle())
-            .disabled(app.projects.first?.exports.isEmpty ?? true)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
@@ -344,5 +338,44 @@ struct SegmentButton<Content: View>: View {
         .buttonStyle(.plain)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
+    }
+}
+
+// MARK: - Copy Last Button
+
+private struct CopyLastButton: View {
+    let enabled: Bool
+    let action: () -> Void
+    @State private var isHovering = false
+    @State private var isPressed = false
+
+    var body: some View {
+        Label("Copy Last", systemImage: "doc.on.doc")
+            .font(.system(size: 11, weight: .semibold))
+            .padding(.horizontal, 11)
+            .frame(height: 30)
+            .foregroundStyle(enabled ? Color.white : Color.white.opacity(0.5))
+            .background(
+                Capsule()
+                    .fill(
+                        !enabled ? UI.red.opacity(0.40) :
+                        isPressed ? UI.red.opacity(0.75) :
+                        isHovering ? UI.red.opacity(0.90) : UI.red
+                    )
+            )
+            .shadow(color: UI.red.opacity(enabled ? (isHovering ? 0.30 : 0.22) : 0), radius: isHovering ? 10 : 8, y: isHovering ? 4 : 3)
+            .scaleEffect(isPressed ? 0.95 : 1)
+            .contentShape(Capsule())
+            .onHover { isHovering = enabled ? $0 : false }
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in isPressed = enabled }
+                    .onEnded { _ in
+                        isPressed = false
+                        if enabled { action() }
+                    }
+            )
+            .animation(.easeInOut(duration: 0.12), value: isHovering)
+            .animation(.easeInOut(duration: 0.08), value: isPressed)
     }
 }
