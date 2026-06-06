@@ -8,7 +8,7 @@ enum UI {
     static let surfaceLow = Color(red: 0.945, green: 0.961, blue: 0.937)
     static let outline = Color(red: 0.839, green: 0.859, blue: 0.839)
     static let text = Color(red: 0.098, green: 0.114, blue: 0.102)
-    static let secondaryText = Color(red: 0.247, green: 0.286, blue: 0.263)
+    static let secondaryText = Color(red: 0.38, green: 0.43, blue: 0.40)
     static let red = Color(red: 1.0, green: 0.392, blue: 0.208)
 }
 

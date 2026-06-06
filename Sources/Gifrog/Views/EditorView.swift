@@ -86,6 +86,7 @@ struct EditorView: View {
                 .foregroundStyle(UI.text)
             Text("\(project.width)x\(project.height)")
                 .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(UI.text)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(UI.surfaceLow)
@@ -240,6 +241,7 @@ struct EditorView: View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Export Settings")
                 .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(UI.text)
                 .padding(.horizontal, 24)
                 .frame(height: 54, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -249,14 +251,14 @@ struct EditorView: View {
 
             VStack(alignment: .leading, spacing: 22) {
                 settingLabel("Format")
-                HStack(spacing: 2) {
-                    ForEach(ExportFormat.allCases) { format in
-                        formatButton(format)
-                    }
-                }
-                .padding(3)
-                .background(UI.surfaceLow)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                SlidingChoiceGroup(
+                    selection: Binding(
+                        get: { ExportFormat.allCases.firstIndex(of: edit.format) ?? 0 },
+                        set: { edit.format = ExportFormat.allCases[$0] }
+                    ),
+                    labels: ExportFormat.allCases.map(\.rawValue),
+                    inset: true
+                )
 
                 HStack {
                     settingLabel("Scale")
@@ -265,11 +267,14 @@ struct EditorView: View {
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(UI.secondaryText)
                 }
-                HStack(spacing: 8) {
-                    scaleButton(1.0)
-                    scaleButton(0.75)
-                    scaleButton(0.5)
-                }
+                let scaleOptions = [1.0, 0.75, 0.5]
+                SlidingChoiceGroup(
+                    selection: Binding(
+                        get: { scaleOptions.firstIndex(of: edit.scale) ?? 0 },
+                        set: { edit.scale = scaleOptions[$0] }
+                    ),
+                    labels: scaleOptions.map { "\(Int($0 * 100))%" }
+                )
 
                 HStack {
                     settingLabel("Framerate")
@@ -281,14 +286,15 @@ struct EditorView: View {
                         .background(UI.primary.opacity(0.12))
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
-                HStack(spacing: 2) {
-                    ForEach([10, 15, 24, 30], id: \.self) { fps in
-                        fpsButton(fps)
-                    }
-                }
-                .padding(3)
-                .background(UI.surfaceLow)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                let fpsOptions = [10, 15, 24, 30]
+                SlidingChoiceGroup(
+                    selection: Binding(
+                        get: { fpsOptions.firstIndex(of: edit.fps) ?? 0 },
+                        set: { edit.fps = fpsOptions[$0] }
+                    ),
+                    labels: fpsOptions.map(String.init),
+                    inset: true
+                )
 
                 Divider()
                 checkRow("Optimize Colors", isOn: $edit.optimizeColors)
@@ -306,6 +312,7 @@ struct EditorView: View {
                             .foregroundStyle(UI.secondaryText)
                         Text(ExportManager.estimate(project: project, edit: edit))
                             .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(UI.text)
                     }
                     Spacer()
                     Image(systemName: "checkmark.icloud")
@@ -317,25 +324,17 @@ struct EditorView: View {
                         .tint(UI.primary)
                 }
 
-                Button {
+                ExportButton(
+                    title: app.phase == .exporting ? "Cancel Export" : "Export \(edit.format.rawValue)",
+                    icon: app.phase == .exporting ? "xmark.circle" : "square.and.arrow.up",
+                    color: app.phase == .exporting ? UI.red : UI.primary
+                ) {
                     if app.phase == .exporting {
                         app.cancelExport()
                     } else {
                         app.export(project: project, edit: edit)
                     }
-                } label: {
-                    Label(
-                        app.phase == .exporting ? "Cancel Export" : "Export \(edit.format.rawValue)",
-                        systemImage: app.phase == .exporting ? "xmark.circle" : "square.and.arrow.up"
-                    )
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background(app.phase == .exporting ? UI.red : UI.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                 }
-                .buttonStyle(.plain)
             }
             .padding(24)
             .background(UI.surfaceLow)
@@ -369,56 +368,6 @@ struct EditorView: View {
             .foregroundStyle(UI.secondaryText)
     }
 
-    private func scaleButton(_ scale: Double) -> some View {
-        Button {
-            edit.scale = scale
-        } label: {
-            Text("\(Int(scale * 100))%")
-                .font(.system(size: 12, weight: .semibold))
-                .frame(maxWidth: .infinity)
-                .frame(height: 34)
-                .foregroundStyle(edit.scale == scale ? UI.primaryDark : UI.secondaryText)
-                .background(edit.scale == scale ? UI.primary.opacity(0.12) : Color.white)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(edit.scale == scale ? UI.primary : UI.outline, lineWidth: edit.scale == scale ? 2 : 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func formatButton(_ format: ExportFormat) -> some View {
-        Button {
-            edit.format = format
-        } label: {
-            Text(format.rawValue)
-                .font(.system(size: 12, weight: .semibold))
-                .frame(maxWidth: .infinity)
-                .frame(height: 30)
-                .foregroundStyle(edit.format == format ? UI.primaryDark : UI.secondaryText)
-                .background(edit.format == format ? Color.white : Color.clear)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .shadow(color: .black.opacity(edit.format == format ? 0.08 : 0), radius: 3, y: 1)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func fpsButton(_ fps: Int) -> some View {
-        Button {
-            edit.fps = fps
-        } label: {
-            Text("\(fps)")
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .frame(maxWidth: .infinity)
-                .frame(height: 30)
-                .foregroundStyle(edit.fps == fps ? UI.primaryDark : UI.secondaryText)
-                .background(edit.fps == fps ? Color.white : Color.clear)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .shadow(color: .black.opacity(edit.fps == fps ? 0.08 : 0), radius: 3, y: 1)
-        }
-        .buttonStyle(.plain)
-    }
 
     private func checkRow(_ title: String, isOn: Binding<Bool>) -> some View {
         Button {
@@ -576,5 +525,42 @@ struct TimelineThumbnailStrip: View {
 
     private func xToFraction(_ x: CGFloat, in width: CGFloat) -> Double {
         Double(x / max(width, 1))
+    }
+}
+
+// MARK: - Export Button
+
+private struct ExportButton: View {
+    let title: String
+    let icon: String
+    let color: Color
+    let action: () -> Void
+    @State private var isHovering = false
+    @State private var isPressed = false
+
+    var body: some View {
+        Label(title, systemImage: icon)
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(Color.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(isPressed ? color.opacity(0.80) : isHovering ? color.opacity(0.90) : color)
+            )
+            .shadow(color: color.opacity(isHovering ? 0.30 : 0.22), radius: isHovering ? 10 : 8, y: isHovering ? 5 : 4)
+            .scaleEffect(isPressed ? 0.97 : 1)
+            .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .onHover { isHovering = $0 }
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in isPressed = true }
+                    .onEnded { _ in
+                        isPressed = false
+                        action()
+                    }
+            )
+            .animation(.easeInOut(duration: 0.12), value: isHovering)
+            .animation(.easeInOut(duration: 0.08), value: isPressed)
     }
 }
