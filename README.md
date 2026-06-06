@@ -1,116 +1,101 @@
-# Gifrog
+<p align="center">
+  <img src="assets/logo.png" width="128" alt="Gifrog Logo">
+</p>
 
-A lightweight macOS menu bar app for screen recording and GIF/MP4/WebM export. Capture any region, window, or full screen, then trim and export — all without leaving the menu bar.
+<h1 align="center">Gifrog</h1>
+
+<p align="center">
+  <strong>Screen recording meets GIF export — right from your menu bar.</strong>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
+  <img src="https://img.shields.io/badge/Platform-macOS_13+-lightgrey.svg" alt="Platform">
+  <img src="https://img.shields.io/badge/Swift-5.10-orange.svg" alt="Swift">
+  <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/文档-中文-red.svg" alt="中文文档"></a>
+</p>
+
+---
+
+Gifrog is a macOS menu bar utility that captures any region, window, or full screen and exports it as an optimized GIF, MP4, or WebM — with built-in trimming, click highlighting, and one-click clipboard copy. No Dock icon, no clutter. Just a frog in your menu bar.
+
+## Quick Start
+
+```bash
+# Clone and build
+git clone git@github.com:Moosphan/Gifrog.git && cd Gifrog
+swift build -c release
+
+# Or build as .app bundle
+bash scripts/build_app.sh && open dist/Gifrog.app
+```
+
+**Requirements:** macOS 13+, Xcode 15+ (or Swift 5.10 toolchain)
 
 ## Features
 
-- **Three capture modes** — Region, Window, or Full Screen
-- **Multiple export formats** — GIF, MP4 (H.264), WebM (VP9)
-- **Built-in editor** — Video preview, timeline trimming, live file-size estimation
-- **Click highlighting** — Visual overlays for mouse clicks during recording
-- **Global hotkey** — `⌥⇧G` to start/stop recording from anywhere
-- **Clipboard integration** — Exported files are automatically copied to clipboard
-- **Drag & drop import** — Import existing MP4, MOV, M4V, or WebM files
-- **Crash recovery** — Automatically recovers incomplete recordings on launch
-- **Launch at login** — Optional auto-start via macOS ServiceManagement
-
-## Requirements
-
-- macOS 13 (Ventura) or later
-- [FFmpeg](https://ffmpeg.org/) — install via Homebrew:
-  ```bash
-  brew install ffmpeg
-  ```
-- Screen Recording permission (app will guide you on first launch)
-
-## Installation
-
-### Build from source
-
-```bash
-git clone git@github.com:Moosphan/Gifrog.git
-cd Gifrog
-swift build -c release
-```
-
-The binary will be at `.build/release/Gifrog`.
-
-### Create .app bundle
-
-```bash
-bash scripts/build_app.sh
-open dist/Gifrog.app
-```
+| | Feature | Description |
+|---|---------|-------------|
+| 🎯 | **Three capture modes** | Region selection, window picker, or full screen |
+| 🎬 | **Multi-format export** | GIF (palette-optimized), MP4 (H.264), WebM (VP9) |
+| ✂️ | **Built-in editor** | Video preview, timeline trimming, live size estimation |
+| 🖱️ | **Click highlighting** | Visual overlays for mouse clicks in recordings |
+| ⌨️ | **Global hotkey** | `⌥⇧G` to start/stop from anywhere |
+| 📋 | **Clipboard ready** | Exported files auto-copied to clipboard |
+| 📂 | **Drag & drop import** | Import MP4, MOV, M4V, or WebM directly |
+| 🔄 | **Crash recovery** | Automatically recovers incomplete recordings |
+| 🚀 | **Launch at login** | Optional auto-start on macOS login |
 
 ## Usage
 
-1. Launch Gifrog — a frog icon appears in the menu bar
-2. Click the icon and choose a capture mode (Region / Window / Screen)
-3. Grant Screen Recording permission when prompted
-4. Record your screen — use the floating toolbar to pause or stop
-5. Trim and configure export in the editor window
-6. Export — the file is saved and copied to clipboard
+1. **Launch** — a frog icon appears in your menu bar
+2. **Choose mode** — click the icon → Region / Window / Screen
+3. **Record** — use the floating toolbar to pause or stop
+4. **Edit & export** — trim in the editor, pick format and quality, export
 
-### Global hotkey
-
-Press `⌥⇧G` anywhere to toggle recording.
-
-### Keyboard shortcuts
+### Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
 | `⌥⇧G` | Start / Stop recording |
-| `Space` | Pause / Resume (during recording) |
+| `Space` | Pause / Resume |
 | `Esc` | Cancel recording |
 
 ## Configuration
 
-Open settings via the gear icon in the status bar popover. Available options:
+Open settings via the gear icon in the popover menu:
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| FPS | 15 | Recording frame rate (10 / 15 / 24 / 30) |
-| Scale | 100% | Output scale (100% / 75% / 50%) |
-| Format | GIF | Export format (GIF / MP4 / WebM) |
-| Quality | Medium | Export quality preset |
-| Countdown | 3s | Countdown before recording starts |
-| Show cursor | On | Include mouse cursor in recording |
-| Click highlight | On | Overlay visual indicators on clicks |
-| Launch at login | Off | Auto-start Gifrog on macOS login |
-| Save path | `~/Movies/Gifrog` | Default export directory |
+| Setting | Default | Options |
+|---------|---------|---------|
+| Frame rate | 15 fps | 10 / 15 / 24 / 30 |
+| Scale | 100% | 100% / 75% / 50% |
+| Format | GIF | GIF / MP4 / WebM |
+| Quality | Medium | Low / Medium / High |
+| Countdown | 3s | 0 / 3 / 5 seconds |
+| Show cursor | On | On / Off |
+| Click highlight | On | On / Off |
+| Launch at login | Off | On / Off |
+| Save path | `~/Movies/Gifrog` | Custom path |
 
 ## Architecture
 
 ```
 Sources/Gifrog/
-├── main.swift                    # App entry point
-├── Models.swift                  # Data models
-├── Controllers/                  # AppKit window & state management
-│   ├── GifrogController.swift    # Central coordinator
-│   ├── StatusBarController.swift # Menu bar icon & popover
-│   └── ...
-├── Recording/                    # Screen capture pipeline
-│   ├── ScreenCaptureRecorder.swift  # ScreenCaptureKit-based
-│   ├── FrameRecorder.swift          # Recording orchestrator
-│   └── ClickEventRecorder.swift     # Mouse click capture
-├── Export/                       # FFmpeg-based export
-│   └── ExportManager.swift
-├── Views/                        # SwiftUI views
-└── Resources/                    # App icons
+├── Controllers/       # AppKit window & state management
+├── Recording/         # ScreenCaptureKit-based capture pipeline
+├── Export/            # FFmpeg-based GIF/MP4/WebM export
+├── Views/             # SwiftUI views
+└── Resources/         # App icons
 ```
-
-## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
-| Language | Swift 5.10 |
-| Build | Swift Package Manager |
-| UI | SwiftUI + AppKit |
 | Capture | ScreenCaptureKit |
 | Video | AVFoundation |
 | Export | FFmpeg |
-| Hotkeys | Carbon HIToolbox |
+| UI | SwiftUI + AppKit |
+| Build | Swift Package Manager |
 
 ## License
 
-Copyright © 2026 Gifrog. All rights reserved.
+[Apache License 2.0](LICENSE) © 2026 Gifrog

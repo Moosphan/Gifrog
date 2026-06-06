@@ -5,3 +5,4 @@ docs/
 src-tauri/target/
 .DS_Store
 *.log
+.*!*.swift
