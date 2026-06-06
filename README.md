@@ -34,17 +34,15 @@ bash scripts/build_app.sh && open dist/Gifrog.app
 
 ## Features
 
-| | Feature | Description |
-|---|---------|-------------|
-| 🎯 | **Three capture modes** | Region selection, window picker, or full screen |
-| 🎬 | **Multi-format export** | GIF (palette-optimized), MP4 (H.264), WebM (VP9) |
-| ✂️ | **Built-in editor** | Video preview, timeline trimming, live size estimation |
-| 🖱️ | **Click highlighting** | Visual overlays for mouse clicks in recordings |
-| ⌨️ | **Global hotkey** | `⌥⇧G` to start/stop from anywhere |
-| 📋 | **Clipboard ready** | Exported files auto-copied to clipboard |
-| 📂 | **Drag & drop import** | Import MP4, MOV, M4V, or WebM directly |
-| 🔄 | **Crash recovery** | Automatically recovers incomplete recordings |
-| 🚀 | **Launch at login** | Optional auto-start on macOS login |
+- **Three capture modes** — Region, Window, or Full Screen
+- **Multiple export formats** — GIF, MP4 (H.264), WebM (VP9)
+- **Built-in editor** — Video preview, timeline trimming, live file-size estimation
+- **Click highlighting** — Visual overlays for mouse clicks during recording
+- **Global hotkey** — `⌥⇧G` to start/stop recording from anywhere
+- **Clipboard integration** — Exported files are automatically copied to clipboard
+- **Drag & drop import** — Import existing MP4, MOV, M4V, or WebM files
+- **Crash recovery** — Automatically recovers incomplete recordings on launch
+- **Launch at login** — Optional auto-start via macOS ServiceManagement
 
 ## Usage
 
@@ -81,20 +79,33 @@ Open settings via the gear icon in the popover menu:
 
 ```
 Sources/Gifrog/
-├── Controllers/       # AppKit window & state management
-├── Recording/         # ScreenCaptureKit-based capture pipeline
-├── Export/            # FFmpeg-based GIF/MP4/WebM export
-├── Views/             # SwiftUI views
-└── Resources/         # App icons
+├── main.swift                    # App entry point
+├── Models.swift                  # Data models
+├── Controllers/                  # AppKit window & state management
+│   ├── GifrogController.swift    # Central coordinator
+│   ├── StatusBarController.swift # Menu bar icon & popover
+│   └── ...
+├── Recording/                    # Screen capture pipeline
+│   ├── ScreenCaptureRecorder.swift  # ScreenCaptureKit-based
+│   ├── FrameRecorder.swift          # Recording orchestrator
+│   └── ClickEventRecorder.swift     # Mouse click capture
+├── Export/                       # FFmpeg-based export
+│   └── ExportManager.swift
+├── Views/                        # SwiftUI views
+└── Resources/                    # App icons
 ```
+
+## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
+| Language | Swift 5.10 |
+| Build | Swift Package Manager |
+| UI | SwiftUI + AppKit |
 | Capture | ScreenCaptureKit |
 | Video | AVFoundation |
 | Export | FFmpeg |
-| UI | SwiftUI + AppKit |
-| Build | Swift Package Manager |
+| Hotkeys | Carbon HIToolbox |
 
 ## License
 

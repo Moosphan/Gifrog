@@ -34,17 +34,15 @@ bash scripts/build_app.sh && open dist/Gifrog.app
 
 ## 功能特性
 
-| | 功能 | 说明 |
-|---|------|------|
-| 🎯 | **三种录制模式** | 区域选取、窗口录制、全屏录制 |
-| 🎬 | **多格式导出** | GIF（调色板优化）、MP4 (H.264)、WebM (VP9) |
-| ✂️ | **内置编辑器** | 视频预览、时间线裁剪、实时文件大小预估 |
-| 🖱️ | **鼠标点击高亮** | 录制时自动标记鼠标点击位置 |
-| ⌨️ | **全局快捷键** | `⌥⇧G` 随时开始/停止录制 |
-| 📋 | **剪贴板集成** | 导出文件自动复制到剪贴板 |
-| 📂 | **拖拽导入** | 支持导入 MP4、MOV、M4V、WebM 文件 |
-| 🔄 | **崩溃恢复** | 自动恢复未完成的录制 |
-| 🚀 | **开机自启** | 可选的 macOS 登录自动启动 |
+- **三种录制模式** — 区域选取、窗口录制、全屏录制
+- **多种导出格式** — GIF、MP4 (H.264)、WebM (VP9)
+- **内置编辑器** — 视频预览、时间线裁剪、实时文件大小预估
+- **鼠标点击高亮** — 录制时自动标记鼠标点击位置
+- **全局快捷键** — `⌥⇧G` 随时开始/停止录制
+- **剪贴板集成** — 导出文件自动复制到剪贴板
+- **拖拽导入** — 支持导入 MP4、MOV、M4V、WebM 文件
+- **崩溃恢复** — 启动时自动恢复未完成的录制
+- **开机自启** — 可选的 macOS ServiceManagement 自动启动
 
 ## 使用方法
 
@@ -81,20 +79,33 @@ bash scripts/build_app.sh && open dist/Gifrog.app
 
 ```
 Sources/Gifrog/
-├── Controllers/       # AppKit 窗口与状态管理
-├── Recording/         # 基于 ScreenCaptureKit 的录制管线
-├── Export/            # 基于 FFmpeg 的 GIF/MP4/WebM 导出
-├── Views/             # SwiftUI 视图
-└── Resources/         # 应用图标资源
+├── main.swift                    # 应用入口
+├── Models.swift                  # 数据模型
+├── Controllers/                  # AppKit 窗口与状态管理
+│   ├── GifrogController.swift    # 核心协调器
+│   ├── StatusBarController.swift # 菜单栏图标与弹出窗口
+│   └── ...
+├── Recording/                    # 屏幕录制管线
+│   ├── ScreenCaptureRecorder.swift  # 基于 ScreenCaptureKit
+│   ├── FrameRecorder.swift          # 录制编排器
+│   └── ClickEventRecorder.swift     # 鼠标点击捕获
+├── Export/                       # 基于 FFmpeg 的导出
+│   └── ExportManager.swift
+├── Views/                        # SwiftUI 视图
+└── Resources/                    # 应用图标资源
 ```
+
+## 技术栈
 
 | 组件 | 技术 |
 |------|------|
+| 语言 | Swift 5.10 |
+| 构建 | Swift Package Manager |
+| UI | SwiftUI + AppKit |
 | 录制 | ScreenCaptureKit |
 | 视频 | AVFoundation |
 | 导出 | FFmpeg |
-| UI | SwiftUI + AppKit |
-| 构建 | Swift Package Manager |
+| 快捷键 | Carbon HIToolbox |
 
 ## 许可证
 
