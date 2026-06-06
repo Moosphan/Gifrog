@@ -4,25 +4,34 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="Gifrog"
 
-BUILD_CONFIG="${1:-release}"
-if [[ "$BUILD_CONFIG" != "release" && "$BUILD_CONFIG" != "debug" ]]; then
-  echo "Usage: build_app.sh [release|debug]" >&2; exit 1
-fi
+BUILD_CONFIG="release"
+CI_MODE=false
+for arg in "$@"; do
+  case "$arg" in
+    release|debug) BUILD_CONFIG="$arg" ;;
+    --ci)          CI_MODE=true ;;
+    *)             echo "Usage: build_app.sh [release|debug] [--ci]" >&2; exit 1 ;;
+  esac
+done
 
 APP_DIR="$ROOT_DIR/dist/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 
-# Find the user's Apple Development signing identity
-SIGN_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | grep "Apple Development" | head -1 | sed 's/.*"\(.*\)".*/\1/')
-if [[ -z "$SIGN_IDENTITY" ]]; then
-  echo "Error: No Apple Development signing identity found." >&2
-  echo "Open Xcode → Settings → Accounts → add your Apple ID, then try again." >&2
-  exit 1
+if $CI_MODE; then
+  SIGN_IDENTITY="-"
+  BUNDLE_ID="com.gifrog.${APP_NAME}"
+  echo "CI mode: ad-hoc signing, bundle ID $BUNDLE_ID"
+else
+  SIGN_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | grep "Apple Development" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+  if [[ -z "$SIGN_IDENTITY" ]]; then
+    echo "Error: No Apple Development signing identity found." >&2
+    echo "Open Xcode → Settings → Accounts → add your Apple ID, then try again." >&2
+    exit 1
+  fi
+  TEAM_ID=$(echo "$SIGN_IDENTITY" | grep -o '[A-Z0-9]\{10\}' | tail -1)
+  BUNDLE_ID="com.${TEAM_ID}.${APP_NAME}"
 fi
-# Extract team ID from the identity (e.g., "2R6CS4DUMJ")
-TEAM_ID=$(echo "$SIGN_IDENTITY" | grep -o '[A-Z0-9]\{10\}' | tail -1)
-BUNDLE_ID="com.${TEAM_ID}.${APP_NAME}"
 
 echo "Signing with: $SIGN_IDENTITY"
 echo "Bundle ID: $BUNDLE_ID"
@@ -89,7 +98,7 @@ PLIST
 
 printf 'APPL????' > "$CONTENTS_DIR/PkgInfo"
 
-# Sign with Apple Development certificate (permissions persist across rebuilds)
+# Sign app bundle (Apple Development cert locally, ad-hoc in CI)
 codesign --force --deep --sign "$SIGN_IDENTITY" "$APP_DIR"
 
 echo "Built $APP_DIR"
