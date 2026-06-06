@@ -15,12 +15,12 @@ let package = Package(
             name: "Gifrog",
             path: "Sources/Gifrog",
             exclude: [
-                "Resources/GifrogIcon.svg",
-                "Resources/GifrogIconTemplate.svg"
+                "Resources/GifrogIcon.svg"
             ],
             resources: [
                 .copy("Resources/GifrogIcon.png"),
-                .copy("Resources/GifrogIconTemplate.png")
+                .copy("Resources/GifrogIconTemplate.png"),
+                .copy("Resources/GifrogIconTemplate.svg")
             ],
             linkerSettings: [
                 .linkedFramework("AppKit"),

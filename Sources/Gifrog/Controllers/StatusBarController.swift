@@ -12,7 +12,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         self.app = app
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
-        if let url = Bundle.module.url(forResource: "GifrogIconTemplate", withExtension: "png"),
+        if let url = Bundle.module.url(forResource: "GifrogIconTemplate", withExtension: "svg"),
            let img = NSImage(contentsOf: url) {
             img.size = NSSize(width: 22, height: 22)
             img.isTemplate = true

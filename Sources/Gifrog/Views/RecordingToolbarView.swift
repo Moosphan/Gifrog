@@ -3,6 +3,7 @@ import SwiftUI
 struct RecordingToolbarView: View {
     @ObservedObject var app: GifrogController
     @State private var dotPulse = false
+    @State private var timerTick = false
 
     var body: some View {
         HStack(spacing: 14) {
@@ -23,11 +24,21 @@ struct RecordingToolbarView: View {
         .padding(.leading, 14)
         .padding(.trailing, 12)
         .padding(.vertical, 8)
-        .background(QuartzBackground(material: .hudWindow, opacity: 0.86))
+        .background(
+            ZStack {
+                VisualEffect(material: .hudWindow, blendingMode: .behindWindow)
+                UI.surface.opacity(0.62)
+            }
+        )
         .clipShape(Capsule())
-        .overlay(Capsule().stroke(Color.black.opacity(0.07), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.10), radius: 18, y: 8)
-        .frame(minWidth: 560, minHeight: 56)
+        .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.18), radius: 20, y: 8)
+        .frame(height: 56)
+        .onReceive(Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()) { _ in
+            if app.phase == .recording {
+                timerTick.toggle()
+            }
+        }
     }
 
     private var dragHandle: some View {

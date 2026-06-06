@@ -73,15 +73,10 @@ final class GifrogController: NSObject, ObservableObject {
     }
 
     func refreshPermissionStatus() {
-        #if DEBUG
-        // Debug builds lack proper bundle signing, so TCC APIs always return false.
-        // Show as granted in debug to avoid misleading users during development.
-        hasScreenRecordingPermission = true
-        hasAccessibilityPermission = true
-        #else
-        hasScreenRecordingPermission = CGPreflightScreenCaptureAccess()
+        // CGRequestScreenCaptureAccess() is a no-op (no dialog) once granted,
+        // and works reliably on unsigned debug builds unlike CGPreflightScreenCaptureAccess().
+        hasScreenRecordingPermission = CGRequestScreenCaptureAccess()
         hasAccessibilityPermission = AXIsProcessTrusted()
-        #endif
     }
 
     func showUIPreview(surface: String) {
@@ -272,6 +267,7 @@ final class GifrogController: NSObject, ObservableObject {
         }
 
         countdownTimer?.invalidate()
+        regionSelector?.close()
         elapsed = 0
         phase = .recording
         toolbarController?.refresh()
@@ -350,6 +346,7 @@ final class GifrogController: NSObject, ObservableObject {
         phase = .idle
         currentRegion = nil
         toolbarController?.hide()
+        regionSelector?.close()
         statusController?.refresh()
     }
 
@@ -754,10 +751,12 @@ final class GifrogController: NSObject, ObservableObject {
     }
 
     private func startElapsedTimer() {
-        elapsedTimer?.invalidate()
-        elapsedTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [unowned self] _ in
-            self.elapsed += 0.25
-            self.toolbarController?.refresh()
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.elapsedTimer?.invalidate()
+            self.elapsedTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+                self?.elapsed += 0.25
+            }
         }
     }
 

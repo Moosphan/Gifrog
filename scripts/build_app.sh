@@ -3,22 +3,41 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="Gifrog"
+
+BUILD_CONFIG="${1:-release}"
+if [[ "$BUILD_CONFIG" != "release" && "$BUILD_CONFIG" != "debug" ]]; then
+  echo "Usage: build_app.sh [release|debug]" >&2; exit 1
+fi
+
 APP_DIR="$ROOT_DIR/dist/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 
+# Find the user's Apple Development signing identity
+SIGN_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | grep "Apple Development" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+if [[ -z "$SIGN_IDENTITY" ]]; then
+  echo "Error: No Apple Development signing identity found." >&2
+  echo "Open Xcode → Settings → Accounts → add your Apple ID, then try again." >&2
+  exit 1
+fi
+# Extract team ID from the identity (e.g., "2R6CS4DUMJ")
+TEAM_ID=$(echo "$SIGN_IDENTITY" | grep -o '[A-Z0-9]\{10\}' | tail -1)
+BUNDLE_ID="com.${TEAM_ID}.${APP_NAME}"
+
+echo "Signing with: $SIGN_IDENTITY"
+echo "Bundle ID: $BUNDLE_ID"
+
 cd "$ROOT_DIR"
-swift build -c release
+swift build -c "$BUILD_CONFIG"
 
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$CONTENTS_DIR/Resources"
 
-cp "$ROOT_DIR/.build/release/$APP_NAME" "$MACOS_DIR/$APP_NAME"
+cp "$ROOT_DIR/.build/arm64-apple-macosx/$BUILD_CONFIG/$APP_NAME" "$MACOS_DIR/$APP_NAME"
 chmod +x "$MACOS_DIR/$APP_NAME"
 
-# Copy SPM resource bundle (contains embedded images like GifrogIcon.png)
-# SPM's Bundle.module looks relative to Bundle.main.bundleURL which is the .app dir itself
-cp -R "$ROOT_DIR/.build/arm64-apple-macosx/release/Gifrog_Gifrog.bundle" "$APP_DIR/"
+# Copy SPM resource bundle into Contents/Resources so codesign seals it properly
+cp -R "$ROOT_DIR/.build/arm64-apple-macosx/$BUILD_CONFIG/Gifrog_Gifrog.bundle" "$CONTENTS_DIR/Resources/"
 
 # Build app icon from PNG
 ICON_SRC="$ROOT_DIR/Sources/Gifrog/Resources/GifrogIcon.png"
@@ -33,7 +52,7 @@ done
 iconutil -c icns "$ICONSET_DIR" -o "$CONTENTS_DIR/Resources/AppIcon.icns"
 rm -rf "$ICONSET_DIR"
 
-cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
+cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -43,7 +62,7 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
   <key>CFBundleExecutable</key>
   <string>Gifrog</string>
   <key>CFBundleIdentifier</key>
-  <string>app.gifrog.Gifrog</string>
+  <string>${BUNDLE_ID}</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
@@ -69,5 +88,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
 PLIST
 
 printf 'APPL????' > "$CONTENTS_DIR/PkgInfo"
+
+# Sign with Apple Development certificate (permissions persist across rebuilds)
+codesign --force --deep --sign "$SIGN_IDENTITY" "$APP_DIR"
 
 echo "Built $APP_DIR"

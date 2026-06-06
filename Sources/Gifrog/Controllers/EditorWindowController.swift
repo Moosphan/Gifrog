@@ -11,12 +11,19 @@ final class EditorWindowController {
 
     func show(project: Project) {
         let editor = EditorView(app: app, project: project)
-        let window = window ?? NSWindow(
+        if let window, window.isVisible || window.isMiniaturized {
+            window.contentView = NSHostingView(rootView: editor)
+            window.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            return
+        }
+        let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1120, height: 760),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
+        window.isReleasedWhenClosed = false
         window.title = "Gifrog Editor"
         window.contentView = NSHostingView(rootView: editor)
         window.center()
