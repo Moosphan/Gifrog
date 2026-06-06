@@ -5,7 +5,7 @@
 <h1 align="center">Gifrog</h1>
 
 <p align="center">
-  <strong>菜单栏里的屏幕录制 & GIF 导出工具</strong>
+  <strong>让每一次屏幕录制，都成为干净优雅的 GIF 作品</strong>
 </p>
 
 <p align="center">

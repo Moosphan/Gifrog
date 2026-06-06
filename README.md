@@ -5,7 +5,7 @@
 <h1 align="center">Gifrog</h1>
 
 <p align="center">
-  <strong>Screen recording meets GIF export — right from your menu bar.</strong>
+  <strong>Turn every screen recording into a clean, elegant GIF.</strong>
 </p>
 
 <p align="center">
@@ -15,7 +15,6 @@
 </p>
 
 <p align="center">
-  <b>🌐 Language / 语言</b><br>
   <a href="README.md">English</a> · <a href="README.zh-CN.md">中文</a>
 </p>
 
