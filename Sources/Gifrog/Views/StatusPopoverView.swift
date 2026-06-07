@@ -13,7 +13,9 @@ struct StatusPopoverView: View {
             footer
         }
         .frame(width: 320)
-        .background(QuartzBackground(opacity: 0.92))
+        .background(QuartzBackground(opacity: 1.0))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(color: .black.opacity(0.18), radius: 20, y: 8)
         .overlay {
             if isDropTarget {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)

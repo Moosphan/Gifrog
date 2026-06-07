@@ -1,12 +1,12 @@
 import AppKit
 import SwiftUI
 
-final class StatusBarController: NSObject, NSPopoverDelegate {
+final class StatusBarController: NSObject {
     private let app: GifrogController
     private let statusItem: NSStatusItem
-    private let popover = NSPopover()
+    private var panel: NSPanel?
     private let defaultIcon: NSImage?
-    private let surfaceColor = NSColor(red: 0.965, green: 0.980, blue: 0.961, alpha: 1.0)
+    private var eventMonitor: Any?
 
     init(app: GifrogController) {
         self.app = app
@@ -30,12 +30,6 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
-
-        popover.behavior = .transient
-        popover.animates = true
-        popover.contentSize = NSSize(width: 320, height: 430)
-        popover.contentViewController = NSHostingController(rootView: StatusPopoverView(app: app))
-        popover.delegate = self
     }
 
     @objc private func handleClick(_ sender: NSStatusBarButton) {
@@ -61,16 +55,66 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     }
 
     func toggle() {
-        if popover.isShown {
+        if let panel, panel.isVisible {
             close()
-        } else if let button = statusItem.button {
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            NSApplication.shared.activate(ignoringOtherApps: true)
+        } else {
+            showPanel()
+        }
+    }
+
+    private func showPanel() {
+        let p = ensurePanel()
+        guard let button = statusItem.button, let buttonWindow = button.window else { return }
+
+        // Position below the status bar icon
+        let buttonFrame = buttonWindow.convertToScreen(button.frame)
+        let panelWidth: CGFloat = 320
+        let panelHeight: CGFloat = 430
+        let spacing: CGFloat = 6
+
+        var x = buttonFrame.midX - panelWidth / 2
+        let y = buttonFrame.minY - panelHeight - spacing
+
+        // Keep on screen
+        if let screen = NSScreen.main {
+            x = max(screen.visibleFrame.minX + 8, min(x, screen.visibleFrame.maxX - panelWidth - 8))
+        }
+
+        p.setFrame(NSRect(x: x, y: y, width: panelWidth, height: panelHeight), display: true)
+        p.orderFrontRegardless()
+        NSApplication.shared.activate(ignoringOtherApps: true)
+
+        // Close when clicking outside
+        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            self?.close()
         }
     }
 
     func close() {
-        popover.performClose(nil)
+        panel?.orderOut(nil)
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+            eventMonitor = nil
+        }
+    }
+
+    private func ensurePanel() -> NSPanel {
+        if let panel { return panel }
+        let p = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 430),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        p.isOpaque = false
+        p.backgroundColor = .clear
+        p.hasShadow = false
+        p.level = .statusBar
+        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        p.isMovableByWindowBackground = false
+        p.contentView = NSHostingView(rootView: StatusPopoverView(app: app))
+        self.panel = p
+        return p
     }
 
     func refresh() {
@@ -94,37 +138,6 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         default:
             button.image = defaultIcon ?? NSImage(systemSymbolName: "film.stack", accessibilityDescription: "Gifrog")
             button.image?.isTemplate = true
-        }
-    }
-
-    // MARK: - NSPopoverDelegate
-
-    func popoverWillShow(_ notification: Notification) {
-        guard let window = popover.contentViewController?.view.window else { return }
-        window.backgroundColor = surfaceColor
-        // Aggressively tint all popover chrome views to match
-        if let root = window.contentView {
-            tintAllSubviews(root, color: surfaceColor)
-        }
-    }
-
-    private func tintAllSubviews(_ view: NSView, color: NSColor) {
-        // Skip our SwiftUI content view
-        if view is NSHostingView<StatusPopoverView> { return }
-        // Skip the content view's direct SwiftUI hosting view
-        if String(describing: type(of: view)).contains("HostingView") { return }
-
-        view.wantsLayer = true
-        view.layer?.backgroundColor = color.cgColor
-
-        if let ev = view as? NSVisualEffectView {
-            ev.wantsLayer = true
-            ev.layer?.backgroundColor = color.cgColor
-            ev.layer?.opacity = 1.0
-        }
-
-        for sub in view.subviews {
-            tintAllSubviews(sub, color: color)
         }
     }
 }

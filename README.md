@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge" alt="License"></a>
-  <img src="https://img.shields.io/badge/Platform-macOS_13+-lightgrey.svg?style=for-the-badge" alt="Platform">
+  <img src="https://img.shields.io/badge/Platform-macOS_13+-10B981.svg?style=for-the-badge" alt="Platform">
   <img src="https://img.shields.io/badge/Swift-5.10-orange.svg?style=for-the-badge" alt="Swift">
 </p>
 
