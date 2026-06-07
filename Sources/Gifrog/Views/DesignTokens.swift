@@ -117,14 +117,15 @@ struct RecordButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                Capsule()
                     .fill(
-                        configuration.isPressed ? UI.primaryDark :
-                        isHovering ? UI.primary.opacity(0.88) : UI.primary
+                        configuration.isPressed ? UI.primary.opacity(0.78) :
+                        isHovering ? UI.primary.opacity(0.92) : UI.primary
                     )
             )
-            .shadow(color: UI.primary.opacity(isHovering ? 0.30 : 0.22), radius: isHovering ? 12 : 10, y: isHovering ? 6 : 5)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .shadow(color: UI.primary.opacity(isHovering ? 0.35 : 0.25), radius: isHovering ? 14 : 10, y: isHovering ? 6 : 4)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
             .onHover { isHovering = $0 }
     }
 }

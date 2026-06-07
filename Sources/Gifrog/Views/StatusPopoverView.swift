@@ -63,18 +63,7 @@ struct StatusPopoverView: View {
             Button {
                 app.startCaptureFlow()
             } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "record.circle")
-                    Text("Record \(app.selectedMode.rawValue)")
-                    Spacer()
-                    Text("\(app.settings.defaultFPS) FPS")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .opacity(0.85)
-                }
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.white)
-                .padding(.horizontal, 12)
-                .frame(height: 38)
+                RecordButtonLabel(mode: app.selectedMode)
             }
             .buttonStyle(RecordButtonStyle())
 
@@ -180,10 +169,31 @@ struct RecentProjectRow: View {
     @ObservedObject var app: GifrogController
     var project: Project
     @State private var isHovering = false
+    @State private var cachedImage: NSImage?
 
     var body: some View {
         HStack(spacing: 10) {
-            thumbnail
+            ZStack {
+                thumbnail
+                // Play overlay on thumbnail
+                if isHovering {
+                    Button {
+                        app.openEditor(project: project)
+                    } label: {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Color.white)
+                            .frame(width: 24, height: 24)
+                            .background(Circle().fill(Color.black.opacity(0.55)))
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.opacity)
+                }
+            }
+            .frame(width: 48, height: 36)
+            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .onTapGesture { app.openEditor(project: project) }
+
             VStack(alignment: .leading, spacing: 3) {
                 Text(project.name)
                     .font(.system(size: 13))
@@ -198,14 +208,7 @@ struct RecentProjectRow: View {
                 .foregroundStyle(UI.secondaryText.opacity(0.75))
             }
             Spacer()
-            Button {
-                app.openEditor(project: project)
-            } label: {
-                Image(systemName: "play.fill")
-                    .font(.system(size: 12))
-            }
-            .buttonStyle(IconButtonStyle())
-            if let exported = project.exports.first {
+            if isHovering, let exported = project.exports.first {
                 Button {
                     app.copyToClipboard(exported)
                 } label: {
@@ -213,6 +216,7 @@ struct RecentProjectRow: View {
                         .font(.system(size: 12))
                 }
                 .buttonStyle(IconButtonStyle())
+                .transition(.opacity)
             }
         }
         .padding(8)
@@ -221,12 +225,18 @@ struct RecentProjectRow: View {
                 .fill(isHovering ? Color.black.opacity(0.06) : Color.clear)
         )
         .contentShape(Rectangle())
-        .onHover { isHovering = $0 }
+        .onHover { hovering in withAnimation(.easeInOut(duration: 0.15)) { isHovering = hovering } }
+        .onAppear { loadImage() }
+    }
+
+    private func loadImage() {
+        guard cachedImage == nil, let url = project.thumbnailURL else { return }
+        cachedImage = NSImage(contentsOf: url)
     }
 
     @ViewBuilder
     private var thumbnail: some View {
-        if let url = project.thumbnailURL, let image = NSImage(contentsOf: url) {
+        if let image = cachedImage {
             Image(nsImage: image)
                 .resizable()
                 .scaledToFill()
@@ -340,6 +350,47 @@ struct SegmentButton<Content: View>: View {
         .buttonStyle(.plain)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
+    }
+}
+
+// MARK: - Record Button Label
+
+private struct RecordButtonLabel: View {
+    let mode: CaptureMode
+    @State private var pulse = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                // Ripple rings
+                Circle()
+                    .stroke(Color.white.opacity(0.35), lineWidth: 1.5)
+                    .frame(width: 18, height: 18)
+                    .scaleEffect(pulse ? 1.5 : 1.0)
+                    .opacity(pulse ? 0 : 0.7)
+                Circle()
+                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    .frame(width: 18, height: 18)
+                    .scaleEffect(pulse ? 1.8 : 1.0)
+                    .opacity(pulse ? 0 : 0.5)
+                // Solid white dot
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 10, height: 10)
+            }
+            .frame(width: 24, height: 24)
+
+            Text("Record \(mode.rawValue)")
+                .font(.system(size: 15, weight: .bold))
+        }
+        .foregroundStyle(Color.white)
+        .frame(maxWidth: .infinity)
+        .frame(height: 44)
+        .onAppear {
+            withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) {
+                pulse = true
+            }
+        }
     }
 }
 
