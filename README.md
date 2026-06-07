@@ -28,19 +28,6 @@ Download the latest `.dmg` from [GitHub Releases](https://github.com/Moosphan/Gi
 
 > **Note:** macOS may show an "unidentified developer" warning on first launch. Right-click the app and select **Open** to bypass it.
 
-## Quick Start
-
-```bash
-# Clone and build
-git clone git@github.com:Moosphan/Gifrog.git && cd Gifrog
-swift build -c release
-
-# Or build as .app bundle
-bash scripts/build_app.sh && open dist/Gifrog.app
-```
-
-**Requirements:** macOS 13+, Xcode 15+ (or Swift 5.10 toolchain)
-
 ## Features
 
 - **Three capture modes** — Region, Window, or Full Screen
@@ -83,6 +70,19 @@ Open settings via the gear icon in the popover menu:
 | Click highlight | On | On / Off |
 | Launch at login | Off | On / Off |
 | Save path | `~/Movies/Gifrog` | Custom path |
+
+## Quick Start
+
+```bash
+# Clone and build
+git clone git@github.com:Moosphan/Gifrog.git && cd Gifrog
+swift build -c release
+
+# Or build as .app bundle
+bash scripts/build_app.sh && open dist/Gifrog.app
+```
+
+**Requirements:** macOS 13+, Xcode 15+ (or Swift 5.10 toolchain)
 
 ## Architecture
 

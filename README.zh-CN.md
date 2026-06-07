@@ -28,19 +28,6 @@ Gifrog 是一款 macOS 菜单栏工具，可以录制屏幕任意区域、窗口
 
 > **注意：** 首次打开时 macOS 可能提示"无法验证开发者"。右键点击应用，选择 **打开** 即可绕过。
 
-## 快速开始
-
-```bash
-# 克隆并构建
-git clone git@github.com:Moosphan/Gifrog.git && cd Gifrog
-swift build -c release
-
-# 或打包为 .app
-bash scripts/build_app.sh && open dist/Gifrog.app
-```
-
-**环境要求：** macOS 13+，Xcode 15+（或 Swift 5.10 工具链）
-
 ## 功能特性
 
 - **三种录制模式** — 区域选取、窗口录制、全屏录制
@@ -83,6 +70,19 @@ bash scripts/build_app.sh && open dist/Gifrog.app
 | 点击高亮 | 开 | 开 / 关 |
 | 开机自启 | 关 | 开 / 关 |
 | 保存路径 | `~/Movies/Gifrog` | 自定义路径 |
+
+## 快速开始
+
+```bash
+# 克隆并构建
+git clone git@github.com:Moosphan/Gifrog.git && cd Gifrog
+swift build -c release
+
+# 或打包为 .app
+bash scripts/build_app.sh && open dist/Gifrog.app
+```
+
+**环境要求：** macOS 13+，Xcode 15+（或 Swift 5.10 工具链）
 
 ## 项目架构
 
