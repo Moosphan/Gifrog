@@ -22,6 +22,12 @@
 
 Gifrog is a macOS menu bar utility that captures any region, window, or full screen and exports it as an optimized GIF, MP4, or WebM — with built-in trimming, click highlighting, and one-click clipboard copy. No Dock icon, no clutter. Just a frog in your menu bar.
 
+## Download
+
+Download the latest `.dmg` from [GitHub Releases](https://github.com/Moosphan/Gifrog/releases), open it and drag **Gifrog** to **Applications**.
+
+> **Note:** macOS may show an "unidentified developer" warning on first launch. Right-click the app and select **Open** to bypass it.
+
 ## Quick Start
 
 ```bash
