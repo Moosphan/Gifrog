@@ -68,18 +68,31 @@ final class StatusBarController: NSObject {
 
         // Position below the status bar icon
         let buttonFrame = buttonWindow.convertToScreen(button.frame)
-        let panelWidth: CGFloat = 320
-        let panelHeight: CGFloat = 430
+        let contentWidth = StatusPopoverLayout.contentWidth
+        let contentHeight = StatusPopoverLayout.contentHeight
+        let panelWidth = StatusPopoverLayout.panelWidth
+        let panelHeight = StatusPopoverLayout.panelHeight
+        let horizontalPadding = StatusPopoverLayout.horizontalShadowPadding
+        let bottomPadding = StatusPopoverLayout.bottomShadowPadding
         let spacing: CGFloat = 6
 
-        var x = buttonFrame.midX - panelWidth / 2
-        let y = buttonFrame.minY - panelHeight - spacing
+        var contentX = buttonFrame.midX - contentWidth / 2
+        var contentY = buttonFrame.minY - contentHeight - spacing
 
         // Keep on screen
-        if let screen = NSScreen.main {
-            x = max(screen.visibleFrame.minX + 8, min(x, screen.visibleFrame.maxX - panelWidth - 8))
+        let buttonCenter = CGPoint(x: buttonFrame.midX, y: buttonFrame.midY)
+        if let screen = NSScreen.screens.first(where: { $0.frame.contains(buttonCenter) }) ?? NSScreen.main {
+            let minContentX = screen.visibleFrame.minX + horizontalPadding + 8
+            let maxContentX = screen.visibleFrame.maxX - contentWidth - horizontalPadding - 8
+            contentX = max(minContentX, min(contentX, maxContentX))
+
+            let minContentY = screen.visibleFrame.minY + bottomPadding + 8
+            let maxContentY = screen.visibleFrame.maxY - contentHeight - spacing
+            contentY = max(minContentY, min(contentY, maxContentY))
         }
 
+        let x = contentX - horizontalPadding
+        let y = contentY - bottomPadding
         p.setFrame(NSRect(x: x, y: y, width: panelWidth, height: panelHeight), display: true)
         p.orderFrontRegardless()
         NSApplication.shared.activate(ignoringOtherApps: true)
@@ -101,7 +114,12 @@ final class StatusBarController: NSObject {
     private func ensurePanel() -> NSPanel {
         if let panel { return panel }
         let p = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 430),
+            contentRect: NSRect(
+                x: 0,
+                y: 0,
+                width: StatusPopoverLayout.panelWidth,
+                height: StatusPopoverLayout.panelHeight
+            ),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -112,7 +130,14 @@ final class StatusBarController: NSObject {
         p.level = .statusBar
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         p.isMovableByWindowBackground = false
-        p.contentView = NSHostingView(rootView: StatusPopoverView(app: app))
+        let hostingView = NSHostingView(rootView: StatusPopoverView(app: app))
+        hostingView.wantsLayer = true
+        hostingView.autoresizingMask = [.width, .height]
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        hostingView.layer?.masksToBounds = false
+        p.contentView = hostingView
+        p.contentView?.wantsLayer = true
+        p.contentView?.layer?.masksToBounds = false
         self.panel = p
         return p
     }

@@ -1,6 +1,20 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum StatusPopoverLayout {
+    static let contentWidth: CGFloat = 320
+    static let contentHeight: CGFloat = 430
+    static let shadowRadius: CGFloat = 12
+    static let shadowYOffset: CGFloat = 5
+    static let topShadowPadding: CGFloat = 14
+    static let horizontalShadowPadding: CGFloat = 22
+    static let bottomShadowPadding: CGFloat = 44
+    static let cornerRadius: CGFloat = 12
+
+    static var panelWidth: CGFloat { contentWidth + horizontalShadowPadding * 2 }
+    static var panelHeight: CGFloat { contentHeight + topShadowPadding + bottomShadowPadding }
+}
+
 struct StatusPopoverView: View {
     @ObservedObject var app: GifrogController
     @State private var isDropTarget = false
@@ -12,20 +26,31 @@ struct StatusPopoverView: View {
             recentsSection
             footer
         }
-        .frame(width: 320)
+        .frame(width: StatusPopoverLayout.contentWidth, height: StatusPopoverLayout.contentHeight)
         .background(QuartzBackground(opacity: 1.0))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .shadow(color: .black.opacity(0.18), radius: 20, y: 8)
+        .clipShape(RoundedRectangle(cornerRadius: StatusPopoverLayout.cornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: StatusPopoverLayout.cornerRadius, style: .continuous)
+                .stroke(Color.black.opacity(0.06), lineWidth: 1)
+        )
+        .shadow(
+            color: .black.opacity(0.15),
+            radius: StatusPopoverLayout.shadowRadius,
+            y: StatusPopoverLayout.shadowYOffset
+        )
         .overlay {
             if isDropTarget {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: StatusPopoverLayout.cornerRadius, style: .continuous)
                     .fill(UI.primary.opacity(0.10))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: StatusPopoverLayout.cornerRadius, style: .continuous)
                             .stroke(UI.primary, lineWidth: 2)
                     )
             }
         }
+        .padding(.top, StatusPopoverLayout.topShadowPadding)
+        .padding(.horizontal, StatusPopoverLayout.horizontalShadowPadding)
+        .padding(.bottom, StatusPopoverLayout.bottomShadowPadding)
         .onDrop(of: [UTType.fileURL.identifier], isTargeted: $isDropTarget) { providers in
             app.importDroppedFiles(providers)
         }
