@@ -382,35 +382,46 @@ struct SegmentButton<Content: View>: View {
 
 private struct RecordButtonLabel: View {
     let mode: CaptureMode
-    @State private var pulse = false
 
     var body: some View {
-        HStack(spacing: 10) {
-            ZStack {
-                // Ripple rings
-                Circle()
-                    .stroke(Color.white.opacity(0.35), lineWidth: 1.5)
-                    .frame(width: 18, height: 18)
-                    .scaleEffect(pulse ? 1.5 : 1.0)
-                    .opacity(pulse ? 0 : 0.7)
-                Circle()
-                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                    .frame(width: 18, height: 18)
-                    .scaleEffect(pulse ? 1.8 : 1.0)
-                    .opacity(pulse ? 0 : 0.5)
-                // Solid white dot
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 10, height: 10)
-            }
-            .frame(width: 24, height: 24)
-
+        ZStack {
             Text("Record \(mode.rawValue)")
                 .font(.system(size: 15, weight: .bold))
+                .fixedSize(horizontal: true, vertical: false)
+
+            HStack {
+                RecordPulseIcon()
+                    .padding(.leading, 18)
+                Spacer()
+            }
         }
         .foregroundStyle(Color.white)
         .frame(maxWidth: .infinity)
         .frame(height: 44)
+    }
+}
+
+private struct RecordPulseIcon: View {
+    @State private var pulse = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.35), lineWidth: 1.5)
+                .frame(width: 18, height: 18)
+                .scaleEffect(pulse ? 1.5 : 1.0)
+                .opacity(pulse ? 0 : 0.7)
+            Circle()
+                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                .frame(width: 18, height: 18)
+                .scaleEffect(pulse ? 1.8 : 1.0)
+                .opacity(pulse ? 0 : 0.5)
+            Circle()
+                .fill(Color.white)
+                .frame(width: 10, height: 10)
+        }
+        .frame(width: 24, height: 24)
+        .compositingGroup()
         .onAppear {
             withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) {
                 pulse = true

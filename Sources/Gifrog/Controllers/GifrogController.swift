@@ -23,6 +23,9 @@ final class GifrogController: NSObject, ObservableObject {
     private let clickRecorder = ClickEventRecorder()
     private var elapsedTimer: Timer?
     private var countdownTimer: Timer?
+    private var recorderStartTask: Task<Void, Never>?
+    private var recorderIsStarting = false
+    private var pendingStopAfterStart = false
     private var currentRegion: CaptureRegion?
     private var currentSession: FrameRecorder.RecordingSession?
     private var exportTask: Task<Void, Never>?
@@ -128,7 +131,11 @@ final class GifrogController: NSObject, ObservableObject {
         currentRegion = previewRegion
 
         phase = .idle
-        render(StatusPopoverView(app: self), size: CGSize(width: 320, height: 430), to: outputDirectory.appendingPathComponent("status-popover.png"))
+        render(
+            StatusPopoverView(app: self),
+            size: CGSize(width: StatusPopoverLayout.panelWidth, height: StatusPopoverLayout.panelHeight),
+            to: outputDirectory.appendingPathComponent("status-popover.png")
+        )
 
         phase = .recording
         elapsed = 14
@@ -270,18 +277,54 @@ final class GifrogController: NSObject, ObservableObject {
         regionSelector?.close()
         elapsed = 0
         phase = .recording
+        recorderIsStarting = true
+        pendingStopAfterStart = false
+        startElapsedTimer()
         toolbarController?.refresh()
         statusController?.refresh()
 
-        Task {
+        recorderStartTask?.cancel()
+        recorderStartTask = Task {
             do {
-                currentSession = try await recorder.start(region: currentRegion, settings: settings)
-                if settings.highlightClicks {
-                    clickRecorder.start(region: currentRegion)
+                let session = try await recorder.start(region: currentRegion, settings: settings)
+                let shouldAbort = await MainActor.run { () -> Bool in
+                    self.currentSession = session
+                    self.recorderIsStarting = false
+                    if Task.isCancelled || self.phase != .recording {
+                        self.pendingStopAfterStart = false
+                        self.recorderStartTask = nil
+                        return true
+                    }
+                    return false
                 }
-                startElapsedTimer()
+                if shouldAbort {
+                    await MainActor.run {
+                        self.currentSession = nil
+                    }
+                    await recorder.cancel()
+                    return
+                }
+                await MainActor.run {
+                    self.recorderStartTask = nil
+                    if self.settings.highlightClicks {
+                        self.clickRecorder.start(region: currentRegion)
+                    }
+                    if self.pendingStopAfterStart {
+                        self.pendingStopAfterStart = false
+                        self.stopRecording()
+                    }
+                }
             } catch {
-                fail(error)
+                await MainActor.run {
+                    self.recorderIsStarting = false
+                    self.recorderStartTask = nil
+                    self.elapsedTimer?.invalidate()
+                    if self.phase == .idle || Task.isCancelled {
+                        self.currentSession = nil
+                        return
+                    }
+                    self.fail(error)
+                }
             }
         }
     }
@@ -307,7 +350,16 @@ final class GifrogController: NSObject, ObservableObject {
     }
 
     func stopRecording() {
-        guard phase == .recording || phase == .paused || phase == .countdown else { return }
+        if phase == .countdown {
+            cancelRecording()
+            return
+        }
+        guard phase == .recording || phase == .paused else { return }
+
+        if recorderIsStarting {
+            pendingStopAfterStart = true
+            return
+        }
 
         countdownTimer?.invalidate()
         elapsedTimer?.invalidate()
@@ -341,6 +393,10 @@ final class GifrogController: NSObject, ObservableObject {
     func cancelRecording() {
         countdownTimer?.invalidate()
         elapsedTimer?.invalidate()
+        recorderStartTask?.cancel()
+        recorderStartTask = nil
+        recorderIsStarting = false
+        pendingStopAfterStart = false
         _ = clickRecorder.stop()
         Task { await recorder.cancel() }
         phase = .idle

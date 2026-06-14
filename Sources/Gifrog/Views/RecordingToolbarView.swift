@@ -2,6 +2,9 @@ import SwiftUI
 
 struct RecordingToolbarView: View {
     @ObservedObject var app: GifrogController
+    var activePopupType: RecordingToolbarController.PopupType?
+    var onTogglePopup: (RecordingToolbarController.PopupType) -> Void = { _ in }
+    var onDismissPopup: () -> Void = {}
     @State private var dotPulse = false
     @State private var timerTick = false
 
@@ -24,16 +27,11 @@ struct RecordingToolbarView: View {
         .padding(.leading, 14)
         .padding(.trailing, 12)
         .padding(.vertical, 8)
-        .background(
-            ZStack {
-                VisualEffect(material: .hudWindow, blendingMode: .behindWindow)
-                UI.surface.opacity(0.62)
-            }
-        )
+        .background(UI.surface)
         .clipShape(Capsule())
         .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.18), radius: 20, y: 8)
         .frame(height: 56)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .onReceive(Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()) { _ in
             if app.phase == .recording {
                 timerTick.toggle()
@@ -86,9 +84,23 @@ struct RecordingToolbarView: View {
         HStack(spacing: 10) {
             Label(captureSize, systemImage: "aspectratio")
             separator
-            Label("\(app.settings.defaultFPS)", systemImage: "speedometer")
+            popupTrigger(type: .fps) {
+                HStack(spacing: 3) {
+                    Image(systemName: "speedometer")
+                        .font(.system(size: 10))
+                    Text("\(app.settings.defaultFPS)")
+                        .font(.system(size: 11, weight: .medium))
+                }
+            }
             separator
-            Label(app.settings.defaultFormat.rawValue, systemImage: "photo.stack")
+            popupTrigger(type: .format) {
+                HStack(spacing: 3) {
+                    Image(systemName: "photo.stack")
+                        .font(.system(size: 10))
+                    Text(app.settings.defaultFormat.rawValue)
+                        .font(.system(size: 11, weight: .medium))
+                }
+            }
         }
         .labelStyle(.titleAndIcon)
         .font(.system(size: 11, weight: .medium))
@@ -98,6 +110,27 @@ struct RecordingToolbarView: View {
         .background(Color.black.opacity(0.05))
         .clipShape(Capsule())
         .overlay(Capsule().stroke(Color.black.opacity(0.05), lineWidth: 0.5))
+    }
+
+    private func popupTrigger<Content: View>(
+        type: RecordingToolbarController.PopupType,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        let isActive = activePopupType == type
+
+        return content()
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(
+                Capsule()
+                    .fill(isActive ? UI.primary.opacity(0.14) : Color.clear)
+            )
+            .overlay(
+                Capsule()
+                    .stroke(isActive ? UI.primary.opacity(0.28) : Color.clear, lineWidth: 0.5)
+            )
+            .contentShape(Rectangle())
+            .onTapGesture { onTogglePopup(type) }
     }
 
     private var separator: some View {
@@ -226,5 +259,53 @@ struct RecordingToolbarView: View {
     private var toolbarTime: String {
         if app.phase == .countdown { return "Ready" }
         return timeString(app.elapsed)
+    }
+}
+
+// MARK: - Popup Option Bar
+
+struct PopupOptionBar: View {
+    @ObservedObject var state: RecordingToolbarController.PopupOptionBarState
+    let onSelect: (Int) -> Void
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            PopupSlidingIndicator(selection: CGFloat(state.selectedIndex), count: state.labels.count)
+
+            HStack(spacing: 0) {
+                ForEach(state.labels.indices, id: \.self) { index in
+                    Text(state.labels[index])
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(state.selectedIndex == index ? Color.white : UI.text)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 28)
+                        .contentShape(Rectangle())
+                        .onTapGesture { onSelect(index) }
+                }
+            }
+        }
+        .padding(3)
+        .background(UI.surface)
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 0.5))
+    }
+}
+
+private struct PopupSlidingIndicator: View {
+    let selection: CGFloat
+    let count: Int
+
+    var body: some View {
+        GeometryReader { geo in
+            let segWidth = geo.size.width / CGFloat(max(count, 1))
+
+            Capsule()
+                .fill(UI.primary)
+                .frame(width: segWidth, height: 28)
+                .offset(x: selection * segWidth)
+        }
+        .frame(height: 28)
+        .allowsHitTesting(false)
+        .animation(.spring(response: 0.28, dampingFraction: 0.78), value: selection)
     }
 }

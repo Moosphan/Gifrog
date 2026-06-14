@@ -2,8 +2,17 @@ import AppKit
 import SwiftUI
 
 final class RecordingToolbarController {
+    final class PopupOptionBarState: ObservableObject {
+        @Published var labels: [String] = []
+        @Published var selectedIndex: Int = 0
+    }
+
     private let app: GifrogController
+    private let popupState = PopupOptionBarState()
     private var panel: NSPanel?
+    private var popupPanel: NSPanel?
+    private var activePopupType: PopupType?
+    private var toolbarPlacement: OverlayGeometry.ToolbarPlacement = .belowSelection
     private var eventMonitor: Any?
 
     init(app: GifrogController) {
@@ -12,8 +21,9 @@ final class RecordingToolbarController {
 
     func show(near region: CaptureRegion) {
         let panel = ensurePanel()
-        panel.contentView = NSHostingView(rootView: RecordingToolbarView(app: app))
+        panel.contentView = NSHostingView(rootView: toolbarView)
         position(panel, near: region)
+        syncPopupPosition()
         panel.orderFrontRegardless()
         NSApplication.shared.activate(ignoringOtherApps: true)
         installKeyboardMonitor()
@@ -25,12 +35,157 @@ final class RecordingToolbarController {
     }
 
     func refresh() {
-        panel?.contentView = NSHostingView(rootView: RecordingToolbarView(app: app))
+        if app.phase == .recording {
+            dismissPopup(refreshToolbar: false)
+        }
+        panel?.contentView = NSHostingView(rootView: toolbarView)
+        syncPopupPosition()
     }
 
     func hide() {
+        dismissPopup(refreshToolbar: false)
         panel?.orderOut(nil)
         removeKeyboardMonitor()
+    }
+
+    // MARK: - Popup Panel
+
+    enum PopupType { case fps, format }
+
+    private func togglePopup(_ type: PopupType) {
+        if activePopupType == type {
+            dismissPopup()
+            return
+        }
+        presentPopup(type)
+    }
+
+    private func presentPopup(_ type: PopupType) {
+        guard let toolbar = panel else { return }
+        let labels: [String]
+        let selectedIndex: Int
+        switch type {
+        case .fps:
+            labels = ["10", "15", "24", "30"]
+            selectedIndex = [10, 15, 24, 30].firstIndex(of: app.settings.defaultFPS) ?? 1
+        case .format:
+            labels = ExportFormat.allCases.map(\.rawValue)
+            selectedIndex = ExportFormat.allCases.firstIndex(of: app.settings.defaultFormat) ?? 0
+        }
+        let popupHeight: CGFloat = 36
+        let popup = ensurePopupPanel(for: type)
+        popupPanel = popup
+        activePopupType = type
+        popupState.labels = labels
+        popupState.selectedIndex = selectedIndex
+        if let region = app.activeCaptureRegion {
+            position(toolbar, near: region)
+        }
+        let popupWidth: CGFloat = CGFloat(labels.count) * 48 + 10
+        popup.setFrame(popupFrame(for: toolbar.frame, width: popupWidth, height: popupHeight), display: true)
+        attachPopup(popup, to: toolbar)
+        popup.orderFront(nil)
+        refresh()
+    }
+
+    private func dismissPopup(refreshToolbar: Bool = true) {
+        if let popupPanel {
+            detachPopupFromToolbar(popupPanel)
+            popupPanel.orderOut(nil)
+        }
+        activePopupType = nil
+        if refreshToolbar {
+            refresh()
+        }
+    }
+
+    private var toolbarView: RecordingToolbarView {
+        RecordingToolbarView(
+            app: app,
+            activePopupType: activePopupType,
+            onTogglePopup: { [weak self] type in self?.togglePopup(type) },
+            onDismissPopup: { [weak self] in self?.dismissPopup() }
+        )
+    }
+
+    private func syncPopupPosition() {
+        guard let popupPanel, let toolbar = panel else { return }
+        popupPanel.setFrame(
+            popupFrame(
+                for: toolbar.frame,
+                width: popupPanel.frame.width,
+                height: popupPanel.frame.height
+            ),
+            display: true
+        )
+    }
+
+    private func ensurePopupPanel(for type: PopupType) -> NSPanel {
+        if let popupPanel {
+            popupPanel.contentView = NSHostingView(rootView: popupView(for: type))
+            return popupPanel
+        }
+
+        let popup = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 200, height: 36),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        popup.isOpaque = false
+        popup.backgroundColor = .clear
+        popup.hasShadow = false
+        popup.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        popup.contentView = NSHostingView(rootView: popupView(for: type))
+        popupPanel = popup
+        return popup
+    }
+
+    private func popupView(for type: PopupType) -> PopupOptionBar {
+        PopupOptionBar(
+            state: popupState,
+            onSelect: { [weak self] index in
+                guard let self else { return }
+                switch type {
+                case .fps:
+                    self.app.settings.defaultFPS = [10, 15, 24, 30][index]
+                case .format:
+                    self.app.settings.defaultFormat = ExportFormat.allCases[index]
+                }
+                self.app.saveSettings()
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+                    self.popupState.selectedIndex = index
+                }
+            }
+        )
+    }
+
+    private func attachPopup(_ popup: NSPanel, to toolbar: NSPanel) {
+        detachPopupFromToolbar(popup)
+        toolbar.addChildWindow(popup, ordered: .below)
+    }
+
+    private func detachPopupFromToolbar(_ popup: NSPanel) {
+        popup.parent?.removeChildWindow(popup)
+    }
+
+    private func popupFrame(for toolbarFrame: NSRect, width: CGFloat, height: CGFloat) -> NSRect {
+        guard let screen = NSScreen.screens.first(where: { $0.frame.intersects(toolbarFrame) }) ?? NSScreen.main else {
+            return OverlayGeometry.popupFrame(
+                toolbarFrame: toolbarFrame,
+                width: width,
+                height: height,
+                placement: toolbarPlacement,
+                screenVisibleFrame: toolbarFrame.insetBy(dx: -1000, dy: -1000)
+            )
+        }
+        return OverlayGeometry.popupFrame(
+            toolbarFrame: toolbarFrame,
+            width: width,
+            height: height,
+            placement: toolbarPlacement,
+            screenVisibleFrame: screen.visibleFrame
+        )
     }
 
     private func installKeyboardMonitor() {
@@ -88,14 +243,14 @@ final class RecordingToolbarController {
         if let panel { return panel }
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 660, height: 64),
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 96),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        panel.hasShadow = false
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isMovableByWindowBackground = true
@@ -109,12 +264,17 @@ final class RecordingToolbarController {
         }
 
         let size = panel.frame.size
-        var x = region.globalRect.midX - size.width / 2
-        x = min(max(x, screen.visibleFrame.minX + 12), screen.visibleFrame.maxX - size.width - 12)
+        let layout = OverlayGeometry.toolbarPanelOrigin(
+            region: region.globalRect,
+            screenVisibleFrame: screen.visibleFrame,
+            panelSize: size,
+            popupOverflowBelow: activePopupOverflowBelow
+        )
+        toolbarPlacement = layout.placement
+        panel.setFrameOrigin(layout.origin)
+    }
 
-        let belowY = region.globalRect.minY - size.height - 14
-        let aboveY = region.globalRect.maxY + 14
-        let y = belowY > screen.visibleFrame.minY ? belowY : min(aboveY, screen.visibleFrame.maxY - size.height - 12)
-        panel.setFrameOrigin(NSPoint(x: x, y: y))
+    private var activePopupOverflowBelow: CGFloat {
+        OverlayGeometry.popupOverflowBelow(panelHeight: panel?.frame.height ?? 96, popupHeight: activePopupType == nil ? nil : popupPanel?.frame.height ?? 36)
     }
 }

@@ -115,12 +115,7 @@ final class RegionSelectionView: NSView {
         wantsLayer = true
 
         if let region = initialRegion, screen.frame.intersects(region.globalRect) {
-            let local = NSRect(
-                x: region.globalRect.minX - screen.frame.minX,
-                y: screen.frame.maxY - region.globalRect.maxY,
-                width: region.globalRect.width,
-                height: region.globalRect.height
-            )
+            let local = OverlayGeometry.localSelection(globalRect: region.globalRect, screenFrame: screen.frame)
             selection = local
         } else {
             let x = (frame.width - defaultSize.width) / 2
@@ -156,18 +151,8 @@ final class RegionSelectionView: NSView {
     }
 
     private func toCaptureRegion(_ sel: NSRect) -> CaptureRegion {
-        let global = CGRect(
-            x: screen.frame.minX + sel.minX,
-            y: screen.frame.minY + (screen.frame.height - sel.maxY),
-            width: sel.width,
-            height: sel.height
-        )
-        let capture = CGRect(
-            x: global.minX,
-            y: screen.frame.maxY - global.maxY,
-            width: global.width,
-            height: global.height
-        )
+        let global = OverlayGeometry.selectionGlobalRect(localSelection: sel, screenFrame: screen.frame)
+        let capture = OverlayGeometry.captureRect(globalRect: global, screenFrame: screen.frame)
         return CaptureRegion(globalRect: global, captureRect: capture)
     }
 
@@ -345,36 +330,47 @@ final class RegionSelectionView: NSView {
     }
 
     private func resize(rect: NSRect, handle: Handle, to point: NSPoint) -> NSRect {
+        let point = NSPoint(
+            x: min(max(point.x, 0), bounds.width),
+            y: min(max(point.y, 0), bounds.height)
+        )
         var r = rect
         switch handle {
         case .topLeft:
             r.origin.x = min(point.x, rect.maxX - minSize)
             r.size.width = rect.maxX - r.origin.x
-            r.origin.y = min(point.y, rect.maxY - minSize)
-            r.size.height = rect.maxY - r.origin.y
+            r.size.height = max(minSize, point.y - rect.minY)
         case .topRight:
             r.size.width = max(minSize, point.x - rect.minX)
-            r.origin.y = min(point.y, rect.maxY - minSize)
-            r.size.height = rect.maxY - r.origin.y
+            r.size.height = max(minSize, point.y - rect.minY)
         case .bottomLeft:
             r.origin.x = min(point.x, rect.maxX - minSize)
             r.size.width = rect.maxX - r.origin.x
-            r.size.height = max(minSize, point.y - rect.minY)
-        case .bottomRight:
-            r.size.width = max(minSize, point.x - rect.minX)
-            r.size.height = max(minSize, point.y - rect.minY)
-        case .top:
             r.origin.y = min(point.y, rect.maxY - minSize)
             r.size.height = rect.maxY - r.origin.y
-        case .bottom:
+        case .bottomRight:
+            r.size.width = max(minSize, point.x - rect.minX)
+            r.origin.y = min(point.y, rect.maxY - minSize)
+            r.size.height = rect.maxY - r.origin.y
+        case .top:
             r.size.height = max(minSize, point.y - rect.minY)
+        case .bottom:
+            r.origin.y = min(point.y, rect.maxY - minSize)
+            r.size.height = rect.maxY - r.origin.y
         case .left:
             r.origin.x = min(point.x, rect.maxX - minSize)
             r.size.width = rect.maxX - r.origin.x
         case .right:
             r.size.width = max(minSize, point.x - rect.minX)
         case .move:
-            r = NSRect(x: rect.origin.x + point.x - dragStart.x, y: rect.origin.y + point.y - dragStart.y, width: rect.width, height: rect.height)
+            r = NSRect(
+                x: rect.origin.x + point.x - dragStart.x,
+                y: rect.origin.y + point.y - dragStart.y,
+                width: rect.width,
+                height: rect.height
+            )
+            r.origin.x = min(max(r.origin.x, 0), bounds.width - r.width)
+            r.origin.y = min(max(r.origin.y, 0), bounds.height - r.height)
         case .none:
             break
         }
