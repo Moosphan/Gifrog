@@ -312,16 +312,7 @@ final class ScreenCaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     }
 
     private static func sourceRect(for region: CaptureRegion, display: SCDisplay) -> CGRect {
-        let intersection = region.globalRect.intersection(display.frame)
-        let source = intersection.isNull || intersection.isEmpty ? region.globalRect : intersection
-        let localX = source.minX - display.frame.minX
-        let localY = display.frame.maxY - source.maxY
-        return CGRect(
-            x: max(0, localX),
-            y: max(0, localY),
-            width: min(source.width, display.frame.width),
-            height: min(source.height, display.frame.height)
-        )
+        OverlayGeometry.screenCaptureSourceRect(globalRect: region.globalRect, displayFrame: display.frame)
     }
 
     private static func backingScale(for display: SCDisplay) -> CGFloat {

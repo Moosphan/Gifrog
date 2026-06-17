@@ -119,11 +119,24 @@ struct EditorView: View {
     private var previewCanvas: some View {
         ZStack {
             checkerboard
-            VideoPlayer(player: player)
-                .aspectRatio(CGFloat(max(project.width, 1)) / CGFloat(max(project.height, 1)), contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .shadow(color: .black.opacity(0.08), radius: 14, y: 5)
-                .padding(28)
+            ZStack {
+                VideoPlayer(player: player)
+                    .aspectRatio(CGFloat(max(project.width, 1)) / CGFloat(max(project.height, 1)), contentMode: .fit)
+
+                if edit.showClickHighlight {
+                    ClickHighlightOverlay(
+                        project: project,
+                        currentTime: playheadPosition * max(project.durationSeconds, 0.1),
+                        trimStart: edit.trimStart,
+                        trimEnd: edit.trimEnd
+                    )
+                    .aspectRatio(CGFloat(max(project.width, 1)) / CGFloat(max(project.height, 1)), contentMode: .fit)
+                    .allowsHitTesting(false)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .shadow(color: .black.opacity(0.08), radius: 14, y: 5)
+            .padding(28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(UI.surfaceLow)
@@ -385,6 +398,68 @@ struct EditorView: View {
             .frame(height: 24)
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Click Highlight Preview
+
+private struct ClickHighlightOverlay: View {
+    let project: Project
+    let currentTime: Double
+    let trimStart: Double
+    let trimEnd: Double
+
+    var body: some View {
+        GeometryReader { geometry in
+            ForEach(activeClicks) { click in
+                let progress = max(0, min(1, (currentTime - click.time) / ClickHighlightStyle.visibleDuration))
+                TouchRippleHighlight(progress: progress)
+                    .frame(width: ClickHighlightStyle.spriteSize, height: ClickHighlightStyle.spriteSize)
+                    .position(
+                        x: CGFloat(click.normalizedX) * geometry.size.width,
+                        y: CGFloat(click.normalizedY) * geometry.size.height
+                    )
+            }
+        }
+    }
+
+    private var activeClicks: [ClickEvent] {
+        let previewEnd = trimEnd > trimStart ? trimEnd : project.durationSeconds
+        return project.clickEvents.filter { click in
+            click.time >= trimStart &&
+            click.time <= previewEnd &&
+            currentTime >= click.time &&
+            currentTime <= click.time + ClickHighlightStyle.visibleDuration
+        }
+    }
+}
+
+private struct TouchRippleHighlight: View {
+    let progress: Double
+
+    var body: some View {
+        Circle()
+            .fill(Color.white.opacity(ClickHighlightStyle.fillOpacity * opacity))
+            .overlay(
+                Circle()
+                    .stroke(Color.black.opacity(ClickHighlightStyle.contrastStrokeOpacity * opacity), lineWidth: ClickHighlightStyle.borderWidth + ClickHighlightStyle.contrastBorderWidth * 2)
+            )
+            .overlay(
+                Circle()
+                    .stroke(
+                        Color.white.opacity(ClickHighlightStyle.strokeOpacity * opacity),
+                        lineWidth: ClickHighlightStyle.borderWidth
+                    )
+            )
+            .frame(width: ClickHighlightStyle.circleRadius * 2, height: ClickHighlightStyle.circleRadius * 2)
+            .scaleEffect(1 + 0.06 * progress)
+        .opacity(opacity)
+    }
+
+    private var opacity: Double {
+        let fadeStart = max(0, 1 - ClickHighlightStyle.fadeOutDuration / ClickHighlightStyle.visibleDuration)
+        guard progress > fadeStart else { return 1 }
+        return max(0, 1 - (progress - fadeStart) / (1 - fadeStart))
     }
 }
 

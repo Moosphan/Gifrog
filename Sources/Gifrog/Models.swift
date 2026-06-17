@@ -128,6 +128,18 @@ struct ClickEvent: Codable, Identifiable, Equatable {
     var button: Button
 }
 
+enum ClickHighlightStyle {
+    static let spriteSize: CGFloat = 72
+    static let circleRadius: CGFloat = 23
+    static let borderWidth: CGFloat = 3
+    static let contrastBorderWidth: CGFloat = 1
+    static let visibleDuration: Double = 0.48
+    static let fadeOutDuration: Double = 0.16
+    static let fillOpacity: CGFloat = 0.32
+    static let strokeOpacity: CGFloat = 0.78
+    static let contrastStrokeOpacity: CGFloat = 0.24
+}
+
 struct Project: Codable, Identifiable, Equatable {
     var id = UUID()
     var name: String

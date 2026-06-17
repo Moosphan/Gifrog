@@ -43,6 +43,25 @@ enum OverlayGeometry {
         )
     }
 
+    static func screenCaptureSourceRect(globalRect: CGRect, displayFrame: CGRect) -> CGRect {
+        let intersection = globalRect.intersection(displayFrame)
+        let source = intersection.isNull || intersection.isEmpty ? globalRect : intersection
+        return CGRect(
+            x: max(0, source.minX - displayFrame.minX),
+            y: max(0, displayFrame.maxY - source.maxY),
+            width: min(source.width, displayFrame.width),
+            height: min(source.height, displayFrame.height)
+        )
+    }
+
+    static func normalizedPoint(globalPoint: CGPoint, in region: CGRect) -> CGPoint? {
+        guard region.contains(globalPoint) else { return nil }
+        return CGPoint(
+            x: (globalPoint.x - region.minX) / max(region.width, 1),
+            y: (region.maxY - globalPoint.y) / max(region.height, 1)
+        )
+    }
+
     static func toolbarBottomInset(panelHeight: CGFloat) -> CGFloat {
         max(0, (panelHeight - toolbarContentHeight) / 2)
     }

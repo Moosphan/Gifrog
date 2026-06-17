@@ -20,6 +20,44 @@ struct OverlayLayoutVerifier {
             CGRect(x: 240, y: 100, width: 480, height: 220),
             "capture rect should convert to top-left coordinates"
         )
+        assertRectEqual(
+            OverlayGeometry.screenCaptureSourceRect(globalRect: topGlobal, displayFrame: screen),
+            CGRect(x: 240, y: 100, width: 480, height: 220),
+            "screen capture source rect should match display-local top-left coordinates"
+        )
+        guard let normalizedClick = OverlayGeometry.normalizedPoint(
+            globalPoint: CGPoint(x: 360, y: 690),
+            in: topGlobal
+        ) else {
+            fputs("Assertion failed: click should be inside selection\n", stderr)
+            exit(1)
+        }
+        assertClose(normalizedClick.x, 0.25, "click normalized x should use selection-local horizontal position")
+        assertClose(normalizedClick.y, 0.5, "click normalized y should use top-left video coordinates")
+
+        let secondaryScreen = CGRect(x: -1024, y: 120, width: 1024, height: 768)
+        let secondaryLocal = CGRect(x: 120, y: 220, width: 500, height: 300)
+        let secondaryGlobal = OverlayGeometry.selectionGlobalRect(localSelection: secondaryLocal, screenFrame: secondaryScreen)
+        assertRectEqual(
+            secondaryGlobal,
+            CGRect(x: -904, y: 340, width: 500, height: 300),
+            "secondary display selection should include screen origin"
+        )
+        assertRectEqual(
+            OverlayGeometry.localSelection(globalRect: secondaryGlobal, screenFrame: secondaryScreen),
+            secondaryLocal,
+            "secondary display selection roundtrip should be stable"
+        )
+        assertRectEqual(
+            OverlayGeometry.captureRect(globalRect: secondaryGlobal, screenFrame: secondaryScreen),
+            CGRect(x: -904, y: 248, width: 500, height: 300),
+            "fallback capture rect should preserve global x and top-left y"
+        )
+        assertRectEqual(
+            OverlayGeometry.screenCaptureSourceRect(globalRect: secondaryGlobal, displayFrame: secondaryScreen),
+            CGRect(x: 120, y: 248, width: 500, height: 300),
+            "screen capture source rect should be local to the selected display"
+        )
 
         let panelSize = CGSize(width: 700, height: 96)
         let layoutBelow = OverlayGeometry.toolbarPanelOrigin(

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 struct ExportManager {
@@ -15,9 +16,19 @@ struct ExportManager {
 
         let trimEnd = edit.trimEnd > 0 ? edit.trimEnd : project.durationSeconds
         let duration = max(0.1, trimEnd - edit.trimStart)
-        let filters = Self.videoFilters(project: project, edit: edit, duration: duration)
+        let visibleClicks = Self.visibleClickEvents(project: project, edit: edit, duration: duration)
+        let highlightSpriteURL = try Self.makeClickHighlightSpriteIfNeeded(for: visibleClicks)
+        defer {
+            if let highlightSpriteURL {
+                try? FileManager.default.removeItem(at: highlightSpriteURL)
+            }
+        }
+        let filterGraph = Self.videoFilterGraph(edit: edit, clicks: visibleClicks)
         let ss = String(format: "%.3f", edit.trimStart)
         let t = String(format: "%.3f", duration)
+        let clickInputs = highlightSpriteURL.map { spriteURL in
+            visibleClicks.flatMap { _ in ["-loop", "1", "-i", spriteURL.path] }
+        } ?? []
 
         switch edit.format {
         case .gif:
@@ -26,7 +37,8 @@ struct ExportManager {
                 "-ss", ss,
                 "-t", t,
                 "-i", project.sourceURL.path,
-                "-vf", "\(filters),split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse",
+            ] + clickInputs + [
+                "-filter_complex", "\(filterGraph);[vout]split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse",
                 "-loop", "0",
                 destination.path
             ], cancellationToken: cancellationToken)
@@ -36,7 +48,9 @@ struct ExportManager {
                 "-ss", ss,
                 "-t", t,
                 "-i", project.sourceURL.path,
-                "-vf", "\(filters),format=yuv420p",
+            ] + clickInputs + [
+                "-filter_complex", "\(filterGraph);[vout]format=yuv420p[encoded]",
+                "-map", "[encoded]",
                 "-c:v", "libx264",
                 "-pix_fmt", "yuv420p",
                 "-movflags", "+faststart",
@@ -48,7 +62,9 @@ struct ExportManager {
                 "-ss", ss,
                 "-t", t,
                 "-i", project.sourceURL.path,
-                "-vf", filters,
+            ] + clickInputs + [
+                "-filter_complex", filterGraph,
+                "-map", "[vout]",
                 "-c:v", "libvpx-vp9",
                 "-b:v", "0",
                 "-crf", edit.quality == .high ? "26" : edit.quality == .balanced ? "32" : "38",
@@ -61,31 +77,102 @@ struct ExportManager {
         return ExportedFile(format: edit.format, urlString: destination.path, sizeBytes: size)
     }
 
-    private static func videoFilters(project: Project, edit: EditDecision, duration: Double) -> String {
-        var filters = [
+    private struct VisibleClick {
+        let event: ClickEvent
+        let start: Double
+        let duration: Double
+    }
+
+    private static func videoFilterGraph(edit: EditDecision, clicks: [VisibleClick]) -> String {
+        let baseFilters = [
             "fps=\(edit.fps)",
             "scale=trunc(iw*\(Self.ff(edit.scale))/2)*2:trunc(ih*\(Self.ff(edit.scale))/2)*2:flags=lanczos"
         ]
-
-        if edit.showClickHighlight {
-            filters.append(contentsOf: clickHighlightFilters(project: project, edit: edit, duration: duration))
+        guard edit.showClickHighlight, !clicks.isEmpty else {
+            return "[0:v]\(baseFilters.joined(separator: ","))[vout]"
         }
 
-        return filters.joined(separator: ",")
+        var graph = "[0:v]\(baseFilters.joined(separator: ","))[v0]"
+        for (index, click) in clicks.enumerated() {
+            let inputIndex = index + 1
+            let spriteLabel = "click\(index)"
+            let nextVideoLabel = index == clicks.count - 1 ? "vout" : "v\(index + 1)"
+            let x = "clip(W*\(ff(click.event.normalizedX)),w/2,W-w/2)-w/2"
+            let y = "clip(H*\(ff(click.event.normalizedY)),h/2,H-h/2)-h/2"
+            let fadeDuration = min(ClickHighlightStyle.fadeOutDuration, click.duration)
+            let fadeStart = max(0.08, click.duration - fadeDuration)
+            graph += ";[\(inputIndex):v]format=rgba,trim=duration=\(ff(click.duration)),setpts=PTS-STARTPTS+\(ff(click.start))/TB,fade=t=out:st=\(ff(fadeStart)):d=\(ff(fadeDuration)):alpha=1[\(spriteLabel)]"
+            graph += ";[v\(index)][\(spriteLabel)]overlay=x='\(x)':y='\(y)':eof_action=pass:shortest=0[\(nextVideoLabel)]"
+        }
+        return graph
     }
 
-    private static func clickHighlightFilters(project: Project, edit: EditDecision, duration: Double) -> [String] {
-        project.clickEvents.compactMap { event in
+    private static func visibleClickEvents(project: Project, edit: EditDecision, duration: Double) -> [VisibleClick] {
+        guard edit.showClickHighlight else { return [] }
+        return project.clickEvents.compactMap { event in
             let localTime = event.time - edit.trimStart
-            guard localTime >= -0.40, localTime <= duration else { return nil }
+            guard localTime >= -ClickHighlightStyle.visibleDuration, localTime <= duration else { return nil }
 
             let start = max(0, localTime)
-            let end = min(duration, localTime + 0.38)
+            let end = min(duration, localTime + ClickHighlightStyle.visibleDuration)
             guard end > start else { return nil }
-
-            let color = event.button == .right ? "0x5B94FD@0.48" : "0xFF6435@0.52"
-            return "drawbox=x='iw*\(ff(event.normalizedX))-18':y='ih*\(ff(event.normalizedY))-18':w=36:h=36:color=\(color):t=4:enable='between(t,\(ff(start)),\(ff(end)))'"
+            return VisibleClick(event: event, start: start, duration: end - start)
         }
+    }
+
+    private static func makeClickHighlightSpriteIfNeeded(for clicks: [VisibleClick]) throws -> URL? {
+        guard !clicks.isEmpty else { return nil }
+
+        let size = Int(ClickHighlightStyle.spriteSize.rounded())
+        guard
+            let bitmap = NSBitmapImageRep(
+                bitmapDataPlanes: nil,
+                pixelsWide: size,
+                pixelsHigh: size,
+                bitsPerSample: 8,
+                samplesPerPixel: 4,
+                hasAlpha: true,
+                isPlanar: false,
+                colorSpaceName: .deviceRGB,
+                bytesPerRow: 0,
+                bitsPerPixel: 0
+            )
+        else {
+            throw GifrogError.writerNotReady
+        }
+
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+        defer { NSGraphicsContext.restoreGraphicsState() }
+
+        guard let context = NSGraphicsContext.current?.cgContext else {
+            throw GifrogError.writerNotReady
+        }
+        context.clear(CGRect(x: 0, y: 0, width: size, height: size))
+        let center = CGPoint(x: size / 2, y: size / 2)
+        let rect = CGRect(
+            x: center.x - ClickHighlightStyle.circleRadius,
+            y: center.y - ClickHighlightStyle.circleRadius,
+            width: ClickHighlightStyle.circleRadius * 2,
+            height: ClickHighlightStyle.circleRadius * 2
+        )
+        context.setFillColor(NSColor.white.withAlphaComponent(ClickHighlightStyle.fillOpacity).cgColor)
+        context.fillEllipse(in: rect)
+        context.setStrokeColor(NSColor.black.withAlphaComponent(ClickHighlightStyle.contrastStrokeOpacity).cgColor)
+        context.setLineWidth(ClickHighlightStyle.borderWidth + ClickHighlightStyle.contrastBorderWidth * 2)
+        context.strokeEllipse(in: rect.insetBy(dx: ClickHighlightStyle.contrastBorderWidth / 2, dy: ClickHighlightStyle.contrastBorderWidth / 2))
+        context.setStrokeColor(NSColor.white.withAlphaComponent(ClickHighlightStyle.strokeOpacity).cgColor)
+        context.setLineWidth(ClickHighlightStyle.borderWidth)
+        context.strokeEllipse(in: rect.insetBy(dx: ClickHighlightStyle.borderWidth / 2, dy: ClickHighlightStyle.borderWidth / 2))
+
+        guard let png = bitmap.representation(using: .png, properties: [:]) else {
+            throw GifrogError.writerNotReady
+        }
+
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gifrog-click-highlight-\(UUID().uuidString).png")
+        try png.write(to: url)
+        return url
     }
 
     static func estimate(project: Project, edit: EditDecision) -> String {

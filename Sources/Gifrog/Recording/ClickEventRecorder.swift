@@ -63,11 +63,8 @@ final class ClickEventRecorder {
     private func record(_ event: NSEvent) {
         guard let region, let startedAt, pausedAt == nil else { return }
 
-        let location = NSEvent.mouseLocation
-        guard region.globalRect.contains(location) else { return }
-
-        let normalizedX = (location.x - region.globalRect.minX) / max(region.globalRect.width, 1)
-        let normalizedY = (region.globalRect.maxY - location.y) / max(region.globalRect.height, 1)
+        let location = Self.screenLocation(for: event)
+        guard let normalized = OverlayGeometry.normalizedPoint(globalPoint: location, in: region.globalRect) else { return }
         let elapsed = Date().timeIntervalSince(startedAt) - pausedDuration
 
         let button: ClickEvent.Button
@@ -80,10 +77,18 @@ final class ClickEventRecorder {
         events.append(
             ClickEvent(
                 time: max(0, elapsed),
-                normalizedX: min(max(Double(normalizedX), 0), 1),
-                normalizedY: min(max(Double(normalizedY), 0), 1),
+                normalizedX: min(max(Double(normalized.x), 0), 1),
+                normalizedY: min(max(Double(normalized.y), 0), 1),
                 button: button
             )
         )
+    }
+
+    private static func screenLocation(for event: NSEvent) -> CGPoint {
+        if let window = event.window {
+            return window.convertPoint(toScreen: event.locationInWindow)
+        }
+
+        return event.locationInWindow
     }
 }
