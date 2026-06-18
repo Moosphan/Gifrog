@@ -234,9 +234,9 @@ struct RecordingToolbarView: View {
                 }
                 .buttonStyle(IconButtonStyle())
                 Button {
-                    app.repeatLastRegion()
+                    app.reselectCaptureArea()
                 } label: {
-                    Image(systemName: "arrow.clockwise")
+                    Image(systemName: "crop")
                         .frame(width: 32, height: 32)
                 }
                 .buttonStyle(IconButtonStyle())

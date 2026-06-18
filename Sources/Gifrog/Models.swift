@@ -101,6 +101,7 @@ struct AppSettings: Codable, Equatable {
         savePath = try container.decodeIfPresent(String.self, forKey: .savePath) ?? AppPaths.defaultSavePath.path
         autoCheckUpdates = try container.decodeIfPresent(Bool.self, forKey: .autoCheckUpdates) ?? false
         anonymousUsageStats = try container.decodeIfPresent(Bool.self, forKey: .anonymousUsageStats) ?? false
+        lastRegion = try container.decodeIfPresent(CaptureRegion.self, forKey: .lastRegion)
     }
 }
 
@@ -129,15 +130,18 @@ struct ClickEvent: Codable, Identifiable, Equatable {
 }
 
 enum ClickHighlightStyle {
-    static let spriteSize: CGFloat = 72
-    static let circleRadius: CGFloat = 23
-    static let borderWidth: CGFloat = 3
+    static let spriteSize: CGFloat = 26
+    static let circleRadius: CGFloat = 7.5
+    static let borderWidth: CGFloat = 2
     static let contrastBorderWidth: CGFloat = 1
-    static let visibleDuration: Double = 0.48
-    static let fadeOutDuration: Double = 0.16
-    static let fillOpacity: CGFloat = 0.32
-    static let strokeOpacity: CGFloat = 0.78
-    static let contrastStrokeOpacity: CGFloat = 0.24
+    static let visibleDuration: Double = 0.42
+    static let fadeOutDuration: Double = 0.12
+    static let fillColor = NSColor.white
+    static let strokeColor = NSColor.white
+    static let contrastStrokeColor = NSColor.black
+    static let fillOpacity: CGFloat = 0.30
+    static let strokeOpacity: CGFloat = 0.86
+    static let contrastStrokeOpacity: CGFloat = 0.30
 }
 
 struct Project: Codable, Identifiable, Equatable {

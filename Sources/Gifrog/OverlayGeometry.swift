@@ -54,11 +54,36 @@ enum OverlayGeometry {
         )
     }
 
+    static func appKitWindowRect(cgWindowBounds: CGRect, screenFrame: CGRect) -> CGRect {
+        CGRect(
+            x: cgWindowBounds.minX,
+            y: screenFrame.maxY - cgWindowBounds.maxY,
+            width: cgWindowBounds.width,
+            height: cgWindowBounds.height
+        )
+    }
+
     static func normalizedPoint(globalPoint: CGPoint, in region: CGRect) -> CGPoint? {
         guard region.contains(globalPoint) else { return nil }
         return CGPoint(
             x: (globalPoint.x - region.minX) / max(region.width, 1),
             y: (region.maxY - globalPoint.y) / max(region.height, 1)
+        )
+    }
+
+    static func aspectFitRect(contentSize: CGSize, containerSize: CGSize) -> CGRect {
+        guard contentSize.width > 0, contentSize.height > 0, containerSize.width > 0, containerSize.height > 0 else {
+            return .zero
+        }
+
+        let scale = min(containerSize.width / contentSize.width, containerSize.height / contentSize.height)
+        let width = contentSize.width * scale
+        let height = contentSize.height * scale
+        return CGRect(
+            x: (containerSize.width - width) / 2,
+            y: (containerSize.height - height) / 2,
+            width: width,
+            height: height
         )
     }
 

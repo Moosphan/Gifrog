@@ -35,6 +35,31 @@ struct OverlayLayoutVerifier {
         assertClose(normalizedClick.x, 0.25, "click normalized x should use selection-local horizontal position")
         assertClose(normalizedClick.y, 0.5, "click normalized y should use top-left video coordinates")
 
+        let fittedWide = OverlayGeometry.aspectFitRect(
+            contentSize: CGSize(width: 1516, height: 980),
+            containerSize: CGSize(width: 1200, height: 760)
+        )
+        assertClose(fittedWide.width, 1175.673469387755, tolerance: 0.001, "wide video fit width should preserve aspect")
+        assertClose(fittedWide.height, 760, "wide video fit height should fill container height")
+        assertClose(fittedWide.minX, 12.163265306122469, tolerance: 0.001, "wide video fit should center horizontally")
+
+        let fittedTall = OverlayGeometry.aspectFitRect(
+            contentSize: CGSize(width: 960, height: 640),
+            containerSize: CGSize(width: 1200, height: 500)
+        )
+        assertClose(fittedTall.width, 750, "tall container fit width should preserve aspect")
+        assertClose(fittedTall.height, 500, "tall container fit height should fill container height")
+        assertClose(fittedTall.minX, 225, "tall container fit should center horizontally")
+
+        assertRectEqual(
+            OverlayGeometry.appKitWindowRect(
+                cgWindowBounds: CGRect(x: 178, y: 122, width: 1516, height: 980),
+                screenFrame: CGRect(x: 0, y: 0, width: 1800, height: 1169)
+            ),
+            CGRect(x: 178, y: 67, width: 1516, height: 980),
+            "CGWindow bounds should convert to AppKit global coordinates"
+        )
+
         let secondaryScreen = CGRect(x: -1024, y: 120, width: 1024, height: 768)
         let secondaryLocal = CGRect(x: 120, y: 220, width: 500, height: 300)
         let secondaryGlobal = OverlayGeometry.selectionGlobalRect(localSelection: secondaryLocal, screenFrame: secondaryScreen)

@@ -197,10 +197,11 @@ final class GifrogController: NSObject, ObservableObject {
         switch selectedMode {
         case .region:
             regionSelector?.show(
-                initialRegion: settings.lastRegion,
+                initialRegion: currentRegion ?? settings.lastRegion,
                 onSelectionChanged: { [weak self] region in
                     guard let self else { return }
                     self.currentRegion = region
+                    self.settings.lastRegion = region
                     if self.phase != .ready {
                         self.phase = .ready
                     }
@@ -219,12 +220,16 @@ final class GifrogController: NSObject, ObservableObject {
             }
             prepareRecording(region: CaptureRegion.screen(screen))
         case .window:
-            windowPicker?.show()
+            windowPicker?.show(preferredWindowID: currentRegion?.windowID)
         }
     }
 
     func prepareRecording(region: CaptureRegion) {
         currentRegion = region
+        if selectedMode == .region {
+            settings.lastRegion = region
+            saveSettings()
+        }
         phase = .ready
         elapsed = 0
         toolbarController?.show(near: region)
@@ -240,13 +245,25 @@ final class GifrogController: NSObject, ObservableObject {
         prepareRecording(region: currentRegion)
     }
 
+    func reselectCaptureArea() {
+        elapsed = 0
+        countdownTimer?.invalidate()
+        toolbarController?.hide()
+        phase = .idle
+        startCaptureFlow()
+    }
+
     func startCountdown() {
-        guard currentRegion != nil else {
+        guard let currentRegion else {
             fail(GifrogError.noRegion)
             return
         }
 
         countdownTimer?.invalidate()
+        if selectedMode == .region {
+            settings.lastRegion = currentRegion
+            saveSettings()
+        }
         countdown = max(0, settings.countdownSeconds)
 
         if countdown == 0 {

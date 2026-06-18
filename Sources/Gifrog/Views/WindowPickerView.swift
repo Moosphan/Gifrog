@@ -3,6 +3,7 @@ import SwiftUI
 struct WindowPickerView: View {
     @ObservedObject var app: GifrogController
     var windows: [CapturableWindow]
+    var preferredWindowID: UInt32?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -11,8 +12,7 @@ struct WindowPickerView: View {
                 .padding(18)
             List(windows) { window in
                 Button {
-                    let region = CaptureRegion(globalRect: window.bounds, captureRect: window.bounds, windowID: window.id)
-                    app.prepareRecording(region: region)
+                    app.prepareRecording(region: window.captureRegion)
                     NSApp.keyWindow?.close()
                 } label: {
                     HStack(spacing: 12) {
@@ -26,6 +26,14 @@ struct WindowPickerView: View {
                                 .foregroundStyle(UI.secondaryText)
                         }
                         Spacer()
+                    }
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 6)
+                    .background {
+                        if window.id == preferredWindowID {
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(UI.primary.opacity(0.10))
+                        }
                     }
                 }
                 .buttonStyle(.plain)

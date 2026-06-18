@@ -20,7 +20,7 @@ final class TimelineThumbnailGenerator {
         for i in 0..<thumbnailCount {
             let time = CMTime(seconds: duration * Double(i) / Double(thumbnailCount), preferredTimescale: 600)
             guard let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) else { continue }
-            images.append(NSImage(cgImage: cgImage, size: NSSize(width: 160, height: thumbnailHeight)))
+            images.append(NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height)))
         }
 
         return images
@@ -93,8 +93,7 @@ struct EditorView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 5))
             Spacer()
             Button {
-                player.seek(to: .zero)
-                player.play()
+                playTrimmedRange()
             } label: {
                 Label("Play", systemImage: "play.fill")
             }
@@ -119,20 +118,29 @@ struct EditorView: View {
     private var previewCanvas: some View {
         ZStack {
             checkerboard
-            ZStack {
-                VideoPlayer(player: player)
-                    .aspectRatio(CGFloat(max(project.width, 1)) / CGFloat(max(project.height, 1)), contentMode: .fit)
+            GeometryReader { geometry in
+                let videoRect = OverlayGeometry.aspectFitRect(
+                    contentSize: CGSize(width: max(project.width, 1), height: max(project.height, 1)),
+                    containerSize: geometry.size
+                )
 
-                if edit.showClickHighlight {
-                    ClickHighlightOverlay(
-                        project: project,
-                        currentTime: playheadPosition * max(project.durationSeconds, 0.1),
-                        trimStart: edit.trimStart,
-                        trimEnd: edit.trimEnd
-                    )
-                    .aspectRatio(CGFloat(max(project.width, 1)) / CGFloat(max(project.height, 1)), contentMode: .fit)
-                    .allowsHitTesting(false)
+                ZStack {
+                    VideoPlayer(player: player)
+                        .frame(width: videoRect.width, height: videoRect.height)
+
+                    if edit.showClickHighlight {
+                        ClickHighlightOverlay(
+                            project: project,
+                            currentTime: playheadPosition * max(project.durationSeconds, 0.1),
+                            trimStart: edit.trimStart,
+                            trimEnd: edit.trimEnd
+                        )
+                        .frame(width: videoRect.width, height: videoRect.height)
+                        .allowsHitTesting(false)
+                    }
                 }
+                .frame(width: videoRect.width, height: videoRect.height)
+                .position(x: videoRect.midX, y: videoRect.midY)
             }
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .shadow(color: .black.opacity(0.08), radius: 14, y: 5)
@@ -182,7 +190,7 @@ struct EditorView: View {
                         if isPlaying {
                             player.pause()
                         } else {
-                            player.play()
+                            playTrimmedRange()
                         }
                     } label: {
                         Image(systemName: isPlaying ? "pause.fill" : "play.fill")
@@ -220,31 +228,28 @@ struct EditorView: View {
                     trimStart: $edit.trimStart,
                     trimEnd: $edit.trimEnd,
                     playheadPosition: playheadPosition,
+                    onTrimChange: { start, end, isLeft in
+                        seekWithinTrim(to: start)
+                    },
                     onPlayheadDrag: { fraction in
-                        let time = CMTime(seconds: fraction * project.durationSeconds, preferredTimescale: 600)
-                        player.seek(to: time)
+                        seekWithinTrim(to: fraction * project.durationSeconds)
                     }
                 )
 
-                // Trim sliders (fallback for precise control)
                 HStack {
                     Text("Start \(timeString(edit.trimStart))")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(UI.secondaryText)
-                    Slider(value: $edit.trimStart, in: 0...max(edit.trimEnd - 0.1, 0.1))
-                        .tint(UI.primary)
                     Spacer()
                     Text("End \(timeString(edit.trimEnd))")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(UI.secondaryText)
-                    Slider(value: $edit.trimEnd, in: min(edit.trimStart + 0.1, project.durationSeconds)...max(project.durationSeconds, 0.1))
-                        .tint(UI.primary)
+                    Spacer()
+                    Text("Duration \(timeString(edit.trimEnd - edit.trimStart))")
                 }
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(UI.secondaryText)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
         }
-        .frame(height: 198)
+        .frame(height: 162)
         .background(Color.white)
     }
 
@@ -369,9 +374,30 @@ struct EditorView: View {
         ) { time in
             let seconds = time.seconds
             guard seconds.isFinite, seconds >= 0 else { return }
-            playheadPosition = seconds / max(project.durationSeconds, 0.1)
+            let range = TimelineTrim.clampedRange(start: edit.trimStart, end: edit.trimEnd, duration: project.durationSeconds)
+            if player.rate > 0, seconds >= range.end {
+                player.pause()
+                player.seek(to: CMTime(seconds: range.end, preferredTimescale: 600))
+                playheadPosition = TimelineTrim.fraction(forTime: range.end, duration: project.durationSeconds)
+                isPlaying = false
+                return
+            }
+            playheadPosition = TimelineTrim.fraction(forTime: seconds, duration: project.durationSeconds)
             isPlaying = player.rate > 0
         }
+    }
+
+    private func playTrimmedRange() {
+        let range = TimelineTrim.clampedRange(start: edit.trimStart, end: edit.trimEnd, duration: project.durationSeconds)
+        player.seek(to: CMTime(seconds: range.start, preferredTimescale: 600))
+        playheadPosition = TimelineTrim.fraction(forTime: range.start, duration: project.durationSeconds)
+        player.play()
+    }
+
+    private func seekWithinTrim(to seconds: Double) {
+        let clamped = TimelineTrim.clampedTime(seconds, start: edit.trimStart, end: edit.trimEnd, duration: project.durationSeconds)
+        player.seek(to: CMTime(seconds: clamped, preferredTimescale: 600))
+        playheadPosition = TimelineTrim.fraction(forTime: clamped, duration: project.durationSeconds)
     }
 
     private func settingLabel(_ text: String) -> some View {
@@ -439,15 +465,18 @@ private struct TouchRippleHighlight: View {
 
     var body: some View {
         Circle()
-            .fill(Color.white.opacity(ClickHighlightStyle.fillOpacity * opacity))
+            .fill(Color(nsColor: ClickHighlightStyle.fillColor).opacity(ClickHighlightStyle.fillOpacity * opacity))
             .overlay(
                 Circle()
-                    .stroke(Color.black.opacity(ClickHighlightStyle.contrastStrokeOpacity * opacity), lineWidth: ClickHighlightStyle.borderWidth + ClickHighlightStyle.contrastBorderWidth * 2)
+                    .stroke(
+                        Color(nsColor: ClickHighlightStyle.contrastStrokeColor).opacity(ClickHighlightStyle.contrastStrokeOpacity * opacity),
+                        lineWidth: ClickHighlightStyle.borderWidth + ClickHighlightStyle.contrastBorderWidth * 2
+                    )
             )
             .overlay(
                 Circle()
                     .stroke(
-                        Color.white.opacity(ClickHighlightStyle.strokeOpacity * opacity),
+                        Color(nsColor: ClickHighlightStyle.strokeColor).opacity(ClickHighlightStyle.strokeOpacity * opacity),
                         lineWidth: ClickHighlightStyle.borderWidth
                     )
             )
@@ -471,44 +500,63 @@ struct TimelineThumbnailStrip: View {
     @Binding var trimStart: Double
     @Binding var trimEnd: Double
     let playheadPosition: Double
+    let onTrimChange: (Double, Double, Bool) -> Void
     let onPlayheadDrag: (Double) -> Void
 
-    @State private var isDraggingLeft = false
-    @State private var isDraggingRight = false
     @State private var isDraggingPlayhead = false
+    @State private var activeDrag: DragState?
     @State private var hoveredTime: Double?
 
     private let trackHeight: CGFloat = 80
+    private let trimHandleHitWidth: CGFloat = 30
+    private let playheadHitWidth: CGFloat = 22
+
+    private struct DragState {
+        let target: TimelineTrim.DragTarget
+        let pointerOffset: CGFloat
+    }
 
     var body: some View {
         GeometryReader { geometry in
             let totalWidth = geometry.size.width
+            let range = TimelineTrim.clampedRange(start: trimStart, end: trimEnd, duration: duration)
+            let startX = fractionToX(TimelineTrim.fraction(forTime: range.start, duration: duration), in: totalWidth)
+            let endX = fractionToX(TimelineTrim.fraction(forTime: range.end, duration: duration), in: totalWidth)
+            let playheadFraction = TimelineTrim.playheadFraction(
+                forTime: playheadPosition * max(duration, 0.1),
+                start: trimStart,
+                end: trimEnd,
+                duration: duration
+            )
+            let playheadX = fractionToX(playheadFraction, in: totalWidth)
+
             ZStack(alignment: .topLeading) {
                 // Background thumbnail strip
-                thumbnailRow
+                thumbnailRow(width: totalWidth)
                     .frame(height: trackHeight)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .opacity(0.5)
 
-                // Selected region highlight
-                let startX = fractionToX(trimStart / max(duration, 0.01), in: totalWidth)
-                let endX = fractionToX(trimEnd / max(duration, 0.01), in: totalWidth)
+                Rectangle()
+                    .fill(Color.white.opacity(0.62))
+                    .frame(width: startX, height: trackHeight)
+                    .offset(x: 0)
+                Rectangle()
+                    .fill(Color.white.opacity(0.62))
+                    .frame(width: max(0, totalWidth - endX), height: trackHeight)
+                    .offset(x: endX)
 
                 Rectangle()
                     .fill(UI.primary.opacity(0.08))
                     .frame(width: max(0, endX - startX), height: trackHeight)
                     .offset(x: startX)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                // Selected region top/bottom borders
                 Rectangle()
                     .fill(UI.primary)
-                    .frame(width: max(0, endX - startX), height: 2)
-                    .offset(x: startX, y: 0)
+                    .frame(width: max(0, endX - startX), height: 3)
+                    .offset(x: startX)
                 Rectangle()
                     .fill(UI.primary)
-                    .frame(width: max(0, endX - startX), height: 2)
-                    .offset(x: startX, y: trackHeight - 2)
+                    .frame(width: max(0, endX - startX), height: 3)
+                    .offset(x: startX, y: trackHeight - 3)
 
                 // Left trim handle
                 trimHandle(isLeft: true, x: startX, totalWidth: totalWidth)
@@ -517,22 +565,10 @@ struct TimelineThumbnailStrip: View {
                 trimHandle(isLeft: false, x: endX, totalWidth: totalWidth)
 
                 // Playhead
-                let playheadX = fractionToX(playheadPosition, in: totalWidth)
                 Rectangle()
                     .fill(Color(red: 1.0, green: 0.392, blue: 0.208))
                     .frame(width: 2, height: trackHeight + 16)
                     .offset(x: playheadX - 1, y: -8)
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                isDraggingPlayhead = true
-                                let fraction = xToFraction(value.location.x, in: totalWidth)
-                                onPlayheadDrag(max(0, min(1, fraction)))
-                            }
-                            .onEnded { _ in
-                                isDraggingPlayhead = false
-                            }
-                    )
 
                 // Playhead triangle
                 Path { path in
@@ -545,45 +581,62 @@ struct TimelineThumbnailStrip: View {
             }
             .frame(height: trackHeight + 16)
             .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        handleTimelineDrag(
+                            value,
+                            startX: startX,
+                            endX: endX,
+                            playheadX: playheadX,
+                            totalWidth: totalWidth
+                        )
+                    }
+                    .onEnded { _ in
+                        activeDrag = nil
+                        isDraggingPlayhead = false
+                    }
+            )
         }
         .frame(height: trackHeight + 16)
     }
 
-    private var thumbnailRow: some View {
-        HStack(spacing: 1) {
+    private func thumbnailRow(width: CGFloat) -> some View {
+        let spacing: CGFloat = 1
+        let tileWidth = CGFloat(TimelineTrim.thumbnailTileWidth(
+            totalWidth: Double(width),
+            count: thumbnails.count,
+            spacing: Double(spacing)
+        ))
+
+        return HStack(spacing: spacing) {
             ForEach(0..<thumbnails.count, id: \.self) { index in
                 Image(nsImage: thumbnails[index])
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(height: trackHeight)
+                    .frame(width: tileWidth, height: trackHeight)
                     .clipped()
             }
         }
+        .frame(width: width, height: trackHeight, alignment: .leading)
     }
 
     @ViewBuilder
     private func trimHandle(isLeft: Bool, x: CGFloat, totalWidth: CGFloat) -> some View {
         let handleWidth: CGFloat = 14
-        let handleX = isLeft ? x - handleWidth : x
+        let hitWidth = trimHandleHitWidth
+        let hitX = min(max(x - hitWidth / 2, 0), max(0, totalWidth - hitWidth))
+        let visibleX = min(max(x - hitX - handleWidth / 2, 0), hitWidth - handleWidth)
 
-        RoundedRectangle(cornerRadius: isLeft ? 4 : 4)
-            .fill(UI.primary)
-            .frame(width: handleWidth, height: trackHeight)
-            .offset(x: handleX)
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        let fraction = xToFraction(value.location.x + handleX, in: totalWidth)
-                        let time = fraction * duration
-                        if isLeft {
-                            trimStart = max(0, min(time, trimEnd - 0.1))
-                        } else {
-                            trimEnd = min(duration, max(time, trimStart + 0.1))
-                        }
-                    }
-            )
-            .overlay {
-                // Grip indicator
+        ZStack(alignment: .topLeading) {
+            Rectangle()
+                .fill(Color.clear)
+                .frame(width: hitWidth, height: trackHeight)
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(UI.primary)
+
                 VStack(spacing: 3) {
                     ForEach(0..<3, id: \.self) { _ in
                         Capsule()
@@ -592,6 +645,78 @@ struct TimelineThumbnailStrip: View {
                     }
                 }
             }
+                .frame(width: handleWidth, height: trackHeight)
+                .offset(x: visibleX)
+        }
+            .frame(width: hitWidth, height: trackHeight)
+            .offset(x: hitX)
+            .contentShape(Rectangle())
+            .allowsHitTesting(false)
+    }
+
+    private func handleTimelineDrag(
+        _ value: DragGesture.Value,
+        startX: CGFloat,
+        endX: CGFloat,
+        playheadX: CGFloat,
+        totalWidth: CGFloat
+    ) {
+        let pointerX = value.location.x
+
+        if activeDrag == nil {
+            guard let target = TimelineTrim.dragTarget(
+                x: Double(pointerX),
+                startX: Double(startX),
+                endX: Double(endX),
+                playheadX: Double(playheadX),
+                handleHitWidth: Double(trimHandleHitWidth),
+                playheadHitWidth: Double(playheadHitWidth)
+            ) else { return }
+
+            let anchorX: CGFloat
+            switch target {
+            case .start:
+                anchorX = startX
+            case .end:
+                anchorX = endX
+            case .playhead:
+                anchorX = playheadX
+            }
+            activeDrag = DragState(target: target, pointerOffset: pointerX - anchorX)
+        }
+
+        guard let activeDrag else { return }
+        let targetX = pointerX - activeDrag.pointerOffset
+        let fraction = xToFraction(targetX, in: totalWidth)
+        let time = TimelineTrim.time(forFraction: fraction, duration: duration)
+
+        switch activeDrag.target {
+        case .start:
+            let range = TimelineTrim.updatedRange(
+                moving: .start,
+                to: time,
+                start: trimStart,
+                end: trimEnd,
+                duration: duration
+            )
+            trimStart = range.start
+            trimEnd = range.end
+            onTrimChange(trimStart, trimEnd, true)
+        case .end:
+            let range = TimelineTrim.updatedRange(
+                moving: .end,
+                to: time,
+                start: trimStart,
+                end: trimEnd,
+                duration: duration
+            )
+            trimStart = range.start
+            trimEnd = range.end
+            onTrimChange(trimStart, trimEnd, false)
+        case .playhead:
+            isDraggingPlayhead = true
+            onPlayheadDrag(fraction)
+        }
     }
 
     private func fractionToX(_ fraction: Double, in width: CGFloat) -> CGFloat {
@@ -599,7 +724,7 @@ struct TimelineThumbnailStrip: View {
     }
 
     private func xToFraction(_ x: CGFloat, in width: CGFloat) -> Double {
-        Double(x / max(width, 1))
+        TimelineTrim.fraction(forX: Double(x), width: Double(width))
     }
 }
 

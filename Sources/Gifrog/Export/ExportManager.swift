@@ -99,10 +99,9 @@ struct ExportManager {
             let nextVideoLabel = index == clicks.count - 1 ? "vout" : "v\(index + 1)"
             let x = "clip(W*\(ff(click.event.normalizedX)),w/2,W-w/2)-w/2"
             let y = "clip(H*\(ff(click.event.normalizedY)),h/2,H-h/2)-h/2"
-            let fadeDuration = min(ClickHighlightStyle.fadeOutDuration, click.duration)
-            let fadeStart = max(0.08, click.duration - fadeDuration)
-            graph += ";[\(inputIndex):v]format=rgba,trim=duration=\(ff(click.duration)),setpts=PTS-STARTPTS+\(ff(click.start))/TB,fade=t=out:st=\(ff(fadeStart)):d=\(ff(fadeDuration)):alpha=1[\(spriteLabel)]"
-            graph += ";[v\(index)][\(spriteLabel)]overlay=x='\(x)':y='\(y)':eof_action=pass:shortest=0[\(nextVideoLabel)]"
+            let end = click.start + click.duration
+            graph += ";[\(inputIndex):v]format=rgba[\(spriteLabel)]"
+            graph += ";[v\(index)][\(spriteLabel)]overlay=x='\(x)':y='\(y)':enable='between(t,\(ff(click.start)),\(ff(end)))':eof_action=pass:shortest=0[\(nextVideoLabel)]"
         }
         return graph
     }
@@ -156,12 +155,12 @@ struct ExportManager {
             width: ClickHighlightStyle.circleRadius * 2,
             height: ClickHighlightStyle.circleRadius * 2
         )
-        context.setFillColor(NSColor.white.withAlphaComponent(ClickHighlightStyle.fillOpacity).cgColor)
+        context.setFillColor(ClickHighlightStyle.fillColor.withAlphaComponent(ClickHighlightStyle.fillOpacity).cgColor)
         context.fillEllipse(in: rect)
-        context.setStrokeColor(NSColor.black.withAlphaComponent(ClickHighlightStyle.contrastStrokeOpacity).cgColor)
+        context.setStrokeColor(ClickHighlightStyle.contrastStrokeColor.withAlphaComponent(ClickHighlightStyle.contrastStrokeOpacity).cgColor)
         context.setLineWidth(ClickHighlightStyle.borderWidth + ClickHighlightStyle.contrastBorderWidth * 2)
         context.strokeEllipse(in: rect.insetBy(dx: ClickHighlightStyle.contrastBorderWidth / 2, dy: ClickHighlightStyle.contrastBorderWidth / 2))
-        context.setStrokeColor(NSColor.white.withAlphaComponent(ClickHighlightStyle.strokeOpacity).cgColor)
+        context.setStrokeColor(ClickHighlightStyle.strokeColor.withAlphaComponent(ClickHighlightStyle.strokeOpacity).cgColor)
         context.setLineWidth(ClickHighlightStyle.borderWidth)
         context.strokeEllipse(in: rect.insetBy(dx: ClickHighlightStyle.borderWidth / 2, dy: ClickHighlightStyle.borderWidth / 2))
 

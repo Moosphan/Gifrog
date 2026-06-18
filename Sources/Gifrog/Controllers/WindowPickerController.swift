@@ -7,9 +7,18 @@ struct CapturableWindow: Identifiable {
     var owner: String
     var title: String
     var bounds: CGRect
+    var screenFrame: CGRect
 
     var displayName: String {
         title.isEmpty ? owner : "\(owner) - \(title)"
+    }
+
+    var captureRegion: CaptureRegion {
+        CaptureRegion(
+            globalRect: OverlayGeometry.appKitWindowRect(cgWindowBounds: bounds, screenFrame: screenFrame),
+            captureRect: bounds,
+            windowID: id
+        )
     }
 
     static func list() -> [CapturableWindow] {
@@ -31,11 +40,18 @@ struct CapturableWindow: Identifiable {
                 return nil
             }
 
+            guard let screenFrame = Self.screenFrame(for: bounds) else { return nil }
             let title = info[kCGWindowName as String] as? String ?? ""
-            return CapturableWindow(id: number, owner: owner, title: title, bounds: bounds)
+            return CapturableWindow(id: number, owner: owner, title: title, bounds: bounds, screenFrame: screenFrame)
         }
         .prefix(40)
         .map { $0 }
+    }
+
+    private static func screenFrame(for bounds: CGRect) -> CGRect? {
+        NSScreen.screens.max { left, right in
+            left.frame.intersection(bounds).area < right.frame.intersection(bounds).area
+        }?.frame
     }
 
     func thumbnail() -> NSImage? {
@@ -58,6 +74,13 @@ struct CapturableWindow: Identifiable {
     }
 }
 
+private extension CGRect {
+    var area: CGFloat {
+        guard !isNull && !isInfinite else { return 0 }
+        return max(0, width) * max(0, height)
+    }
+}
+
 final class WindowPickerController {
     private let app: GifrogController
     private var panel: NSPanel?
@@ -66,7 +89,8 @@ final class WindowPickerController {
         self.app = app
     }
 
-    func show() {
+    func show(preferredWindowID: UInt32? = nil) {
+        let windows = Self.sortedWindows(preferredWindowID: preferredWindowID)
         let panel = panel ?? NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 480),
             styleMask: [.titled, .closable, .utilityWindow],
@@ -74,10 +98,22 @@ final class WindowPickerController {
             defer: false
         )
         panel.title = "Choose Window"
-        panel.contentView = NSHostingView(rootView: WindowPickerView(app: app, windows: CapturableWindow.list()))
+        panel.contentView = NSHostingView(
+            rootView: WindowPickerView(app: app, windows: windows, preferredWindowID: preferredWindowID)
+        )
         panel.center()
         panel.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
         self.panel = panel
+    }
+
+    private static func sortedWindows(preferredWindowID: UInt32?) -> [CapturableWindow] {
+        let windows = CapturableWindow.list()
+        guard let preferredWindowID else { return windows }
+        return windows.sorted { lhs, rhs in
+            if lhs.id == preferredWindowID { return true }
+            if rhs.id == preferredWindowID { return false }
+            return false
+        }
     }
 }

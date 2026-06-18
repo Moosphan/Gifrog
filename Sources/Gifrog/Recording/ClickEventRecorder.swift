@@ -85,10 +85,9 @@ final class ClickEventRecorder {
     }
 
     private static func screenLocation(for event: NSEvent) -> CGPoint {
-        if let window = event.window {
-            return window.convertPoint(toScreen: event.locationInWindow)
-        }
-
-        return event.locationInWindow
+        // Global and local mouse monitors report `locationInWindow` in different
+        // coordinate spaces. `mouseLocation` is consistently in AppKit screen
+        // coordinates, which is the same space as CaptureRegion.globalRect.
+        NSEvent.mouseLocation
     }
 }
